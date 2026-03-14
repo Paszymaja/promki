@@ -1,11 +1,7 @@
-from pathlib import Path
-
-from dotenv import set_key
-
 LOGIN_TIMEOUT_MS = 300_000  # 5 minutes
 
 
-def capture_token(country: str = "PL") -> str:
+def capture_token() -> str:
     try:
         from playwright.sync_api import sync_playwright, Error as PlaywrightError
     except ImportError:
@@ -30,7 +26,7 @@ def capture_token(country: str = "PL") -> str:
             context = browser.new_context()
             page = context.new_page()
 
-            url = f"https://www.lidl.{country.lower()}/prm/promotions-list"
+            url = "https://www.lidl.pl/prm/promotions-list"
             print(f"Opening {url} — please log in...")
             page.goto(url, wait_until="domcontentloaded")
 
@@ -56,10 +52,3 @@ def capture_token(country: str = "PL") -> str:
 
     print("Token captured successfully.")
     return token
-
-
-def save_token_to_env(token: str) -> None:
-    env_path = Path(".env")
-    if not env_path.exists():
-        env_path.touch()
-    set_key(str(env_path), "LIDL_ACCESS_TOKEN", token)

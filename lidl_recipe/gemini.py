@@ -1,24 +1,14 @@
 import json
-import os
 import sys
 
 import requests
 
 
-def _gemini_api_key() -> str:
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    if not api_key:
-        print("No GEMINI_API_KEY found in .env")
-        print("Get a free key at https://aistudio.google.com/apikey")
-        sys.exit(1)
-    return api_key
-
-
-def _gemini_request(prompt: str) -> str:
+def _gemini_request(prompt: str, api_key: str) -> str:
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     resp = requests.post(
         url,
-        params={"key": _gemini_api_key()},
+        params={"key": api_key},
         json={"contents": [{"parts": [{"text": prompt}]}]},
         timeout=60,
     )
@@ -35,7 +25,7 @@ def _gemini_request(prompt: str) -> str:
         sys.exit(1)
 
 
-def suggest_recipes(items: list[dict]) -> str:
+def suggest_recipes(items: list[dict], api_key: str) -> str:
     item_list = "\n".join(
         f"- {item['title']}" + (f" ({item['description']})" if item["description"] else "")
         for item in items
@@ -49,4 +39,4 @@ def suggest_recipes(items: list[dict]) -> str:
         "For each recipe, list the ingredients (marking which ones are from "
         "the discount list) and brief cooking instructions. Answer in Polish."
     )
-    return _gemini_request(prompt)
+    return _gemini_request(prompt, api_key)

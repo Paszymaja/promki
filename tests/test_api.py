@@ -6,7 +6,7 @@ from lidl_recipe.api import LidlApi
 
 
 def test_headers():
-    api = LidlApi("pl", "PL", "test-token-123")
+    api = LidlApi("test-token-123")
     headers = api._headers()
     assert headers["Authorization"] == "Bearer test-token-123"
     assert headers["Accept-Language"] == "pl"
@@ -21,7 +21,7 @@ def test_coupons_success(mock_get):
     mock_resp.json.return_value = [{"id": "1"}]
     mock_get.return_value = mock_resp
 
-    api = LidlApi("pl", "PL", "token")
+    api = LidlApi("token")
     result = api.coupons()
 
     assert result == [{"id": "1"}]
@@ -40,7 +40,7 @@ def test_coupons_error_raises(mock_get):
     mock_resp.raise_for_status.side_effect = requests.HTTPError("401")
     mock_get.return_value = mock_resp
 
-    api = LidlApi("pl", "PL", "bad-token")
+    api = LidlApi("bad-token")
     try:
         api.coupons()
         assert False, "Should raise"
@@ -54,7 +54,7 @@ def test_activate_coupon_success(mock_post):
     mock_resp.ok = True
     mock_post.return_value = mock_resp
 
-    api = LidlApi("pl", "PL", "token")
+    api = LidlApi("token")
     api.activate_coupon("abc-123")
 
     args, kwargs = mock_post.call_args
@@ -71,7 +71,7 @@ def test_activate_coupon_error_raises(mock_post):
     mock_resp.raise_for_status.side_effect = requests.HTTPError("409")
     mock_post.return_value = mock_resp
 
-    api = LidlApi("pl", "PL", "token")
+    api = LidlApi("token")
     try:
         api.activate_coupon("abc-123")
         assert False, "Should raise"

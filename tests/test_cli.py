@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from lidl_recipe.cli import main
+from lidl_recipe.config import Config
 
 
 def _make_coupons():
@@ -26,9 +27,9 @@ def _make_coupons():
 
 @patch("lidl_recipe.cli.fetch_and_activate_coupons")
 @patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.load_dotenv")
-def test_main_displays_items_with_dates(mock_dotenv, mock_api_cls, mock_fetch, capsys, monkeypatch):
-    monkeypatch.setenv("LIDL_ACCESS_TOKEN", "fake-token")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_main_displays_items_with_dates(mock_from_env, mock_api_cls, mock_fetch, capsys, monkeypatch):
+    mock_from_env.return_value = Config(access_token="fake-token")
     monkeypatch.setattr("sys.argv", ["lidl-recipe"])
     mock_fetch.return_value = _make_coupons()
 
@@ -38,7 +39,6 @@ def test_main_displays_items_with_dates(mock_dotenv, mock_api_cls, mock_fetch, c
     assert "Ser Gouda" in output
     assert "(do 17.03)" in output
     assert "Mleko UHT" in output
-    # Mleko has no validity end, so no date
     lines = output.split("\n")
     mleko_line = [l for l in lines if "Mleko UHT" in l][0]
     assert "(do" not in mleko_line
@@ -46,9 +46,9 @@ def test_main_displays_items_with_dates(mock_dotenv, mock_api_cls, mock_fetch, c
 
 @patch("lidl_recipe.cli.fetch_and_activate_coupons")
 @patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.load_dotenv")
-def test_main_no_token_exits(mock_dotenv, mock_api_cls, mock_fetch, monkeypatch):
-    monkeypatch.delenv("LIDL_ACCESS_TOKEN", raising=False)
+@patch("lidl_recipe.cli.Config.from_env")
+def test_main_no_token_exits(mock_from_env, mock_api_cls, mock_fetch, monkeypatch):
+    mock_from_env.return_value = Config(access_token="")
     monkeypatch.setattr("sys.argv", ["lidl-recipe"])
 
     with pytest.raises(SystemExit) as exc_info:
@@ -59,9 +59,9 @@ def test_main_no_token_exits(mock_dotenv, mock_api_cls, mock_fetch, monkeypatch)
 
 @patch("lidl_recipe.cli.normalize_coupons")
 @patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.load_dotenv")
-def test_main_debug_mode(mock_dotenv, mock_api_cls, mock_normalize, capsys, monkeypatch):
-    monkeypatch.setenv("LIDL_ACCESS_TOKEN", "fake-token")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_main_debug_mode(mock_from_env, mock_api_cls, mock_normalize, capsys, monkeypatch):
+    mock_from_env.return_value = Config(access_token="fake-token")
     monkeypatch.setattr("sys.argv", ["lidl-recipe", "--debug"])
     mock_api_cls.return_value.coupons.return_value = [{"id": "1", "title": "Test"}]
     mock_normalize.return_value = [{"id": "1", "title": "Test"}]

@@ -1,42 +1,37 @@
-import os
 import sys
 from datetime import datetime
-from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 TASKS_SCOPES = ["https://www.googleapis.com/auth/tasks"]
-TASKS_TOKEN_FILE = str(_PROJECT_ROOT / "tasks_token.json")
-TASKS_CREDENTIALS_FILE = str(_PROJECT_ROOT / "credentials.json")
 
 
-def get_tasks_service():
+def get_tasks_service(config):
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
     from googleapiclient.discovery import build
 
     creds = None
-    if os.path.exists(TASKS_TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TASKS_TOKEN_FILE, TASKS_SCOPES)
+    if config.tasks_token_file.exists():
+        creds = Credentials.from_authorized_user_file(str(config.tasks_token_file), TASKS_SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            if not os.path.exists(TASKS_CREDENTIALS_FILE):
-                print(f"Missing {TASKS_CREDENTIALS_FILE}")
+            if not config.tasks_credentials_file.exists():
+                print(f"Missing {config.tasks_credentials_file}")
                 print("Download OAuth client credentials from https://console.cloud.google.com/apis/credentials")
                 sys.exit(1)
-            flow = InstalledAppFlow.from_client_secrets_file(TASKS_CREDENTIALS_FILE, TASKS_SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(str(config.tasks_credentials_file), TASKS_SCOPES)
             creds = flow.run_local_server(port=8085)
-        with open(TASKS_TOKEN_FILE, "w") as f:
+        with open(config.tasks_token_file, "w") as f:
             f.write(creds.to_json())
 
     return build("tasks", "v1", credentials=creds)
 
 
-def create_shopping_list(items: list[dict]):
-    service = get_tasks_service()
+def create_shopping_list(items: list[dict], config):
+    service = get_tasks_service(config)
 
     today = datetime.now().strftime("%d.%m.%Y")
     list_title = f"Lidl promocje {today}"

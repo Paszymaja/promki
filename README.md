@@ -35,8 +35,6 @@ Alternatively, fill in `.env` manually:
 
 - **`LIDL_ACCESS_TOKEN`** — Bearer token from the Lidl Plus API. Get it from https://www.lidl.pl/prm/promotions-list using browser dev tools (Network tab, look for the `Authorization` header).
 - **`GEMINI_API_KEY`** — Free API key from https://aistudio.google.com/apikey (only needed with `--recipes`)
-- `LIDL_LANGUAGE` — Language code (default: `pl`)
-- `LIDL_COUNTRY` — Country code (default: `PL`)
 
 ### Google Tasks setup (for `--tasks`)
 

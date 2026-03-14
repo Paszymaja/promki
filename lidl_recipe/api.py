@@ -5,17 +5,15 @@ TIMEOUT = 30
 
 
 class LidlApi:
-    def __init__(self, language, country, access_token):
-        self._language = language
-        self._country = country
+    def __init__(self, access_token):
         self._token = access_token
 
     def _headers(self):
         return {
             "Authorization": f"Bearer {self._token}",
             "Accept": "application/json",
-            "Accept-Language": self._language,
-            "Country": self._country,
+            "Accept-Language": "pl",
+            "Country": "PL",
         }
 
     def coupons(self):

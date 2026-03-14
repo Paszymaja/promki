@@ -30,19 +30,19 @@ uv run pytest
 
 Package `lidl_recipe/` with modules:
 
+- **`config.py`** — `Config` dataclass centralizing all env loading, validation, and `.env` writing
 - **`api.py`** — `LidlApi` HTTP client wrapping the Lidl Plus coupons API (Bearer token auth)
 - **`coupons.py`** — `normalize_coupons()` handles varying API response shapes; `fetch_and_activate_coupons()` activates inactive coupons with rate limiting; `extract_discount_items()` extracts title + discount info; `filter_consumables()` uses keyword blocklist to exclude non-consumables
 - **`tasks.py`** — `create_shopping_list()` creates a dated Google Tasks list via OAuth2
 - **`gemini.py`** — `suggest_recipes()` sends item list to Google Gemini free API, responses are in Polish
-- **`login.py`** — `capture_token()` opens Chromium via Playwright, intercepts Bearer token from Lidl API requests after manual login; `save_token_to_env()` upserts token in `.env`
-- **`cli.py`** — `main()` orchestrates the flow: load env → fetch coupons → activate → optionally create tasks/recipes
+- **`login.py`** — `capture_token()` opens Chromium via Playwright, intercepts Bearer token from Lidl API requests after manual login
+- **`cli.py`** — `main()` orchestrates the flow: load config → fetch coupons → activate → optionally create tasks/recipes
 - **`__init__.py`** — re-exports `main` for the `lidl-recipe` entrypoint
 
 ## Configuration
 
-All config via `.env` (see `.env.example`):
+All config via `.env` (see `.env.example`), loaded centrally by `Config.from_env()`:
 - `LIDL_ACCESS_TOKEN` — Bearer token from Lidl Plus (use `--login` to capture, or grab manually from browser dev tools)
 - `GEMINI_API_KEY` — Free key from Google AI Studio (only needed with `--recipes`)
-- `LIDL_LANGUAGE` / `LIDL_COUNTRY` — defaults to `pl` / `PL`
 - `credentials.json` — Google OAuth client credentials for Tasks API (only needed with `--tasks`)
 - Google Tasks OAuth uses fixed port 8085 — redirect URI `http://localhost:8085/` must be registered in Cloud Console

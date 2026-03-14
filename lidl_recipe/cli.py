@@ -1,19 +1,15 @@
 import argparse
 import json
-import os
 import sys
 
-from dotenv import load_dotenv
-
 from .api import LidlApi
+from .config import Config
 from .coupons import (
     extract_discount_items,
     fetch_and_activate_coupons,
     filter_consumables,
     normalize_coupons,
 )
-from .gemini import suggest_recipes
-from .tasks import create_shopping_list
 
 
 def main():
@@ -24,28 +20,20 @@ def main():
     parser.add_argument("--debug", action="store_true", help="dump raw coupon JSON and exit")
     args = parser.parse_args()
 
-    load_dotenv()
+    config = Config.from_env()
 
     if args.login:
-        from .login import capture_token, save_token_to_env
+        from .login import capture_token
 
-        country = os.getenv("LIDL_COUNTRY", "PL")
-        token = capture_token(country=country)
-        save_token_to_env(token)
+        token = capture_token()
+        config.save_token(token)
         print("Token saved to .env")
         if not args.recipes and not args.tasks and not args.debug:
             return
-        load_dotenv(override=True)
+        config.reload()
 
-    access_token = os.getenv("LIDL_ACCESS_TOKEN", "")
-    if not access_token:
-        print("No LIDL_ACCESS_TOKEN found in .env")
-        print("Run: uv run lidl-recipe --login")
-        sys.exit(1)
-
-    language = os.getenv("LIDL_LANGUAGE", "pl")
-    country = os.getenv("LIDL_COUNTRY", "PL")
-    api = LidlApi(language, country, access_token)
+    config.require_access_token()
+    api = LidlApi(config.access_token)
 
     print("Fetching coupons...")
     if args.debug:
@@ -71,14 +59,18 @@ def main():
         if not consumables:
             print("No consumable items found.")
             return
-        create_shopping_list(consumables)
+        from .tasks import create_shopping_list
+
+        create_shopping_list(consumables, config)
 
     if args.recipes:
         if not items:
             print("No food items found for recipe suggestions.")
             return
         print("\nAsking for recipe suggestions...\n")
-        recipes = suggest_recipes(items)
+        from .gemini import suggest_recipes
+
+        recipes = suggest_recipes(items, config.require_gemini_key())
         print(recipes)
 
 

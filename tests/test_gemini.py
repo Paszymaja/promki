@@ -6,8 +6,7 @@ from lidl_recipe.gemini import suggest_recipes
 
 
 @patch("lidl_recipe.gemini.requests.post")
-@patch("lidl_recipe.gemini._gemini_api_key", return_value="fake-key")
-def test_suggest_recipes_builds_prompt(mock_key, mock_post):
+def test_suggest_recipes_builds_prompt(mock_post):
     mock_resp = MagicMock()
     mock_resp.ok = True
     mock_resp.json.return_value = {
@@ -19,7 +18,7 @@ def test_suggest_recipes_builds_prompt(mock_key, mock_post):
         {"title": "Ser Gouda", "description": "2.99 zł"},
         {"title": "Mleko", "description": ""},
     ]
-    result = suggest_recipes(items)
+    result = suggest_recipes(items, "fake-key")
 
     assert result == "Recipe output"
     prompt = mock_post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"]
@@ -29,8 +28,7 @@ def test_suggest_recipes_builds_prompt(mock_key, mock_post):
 
 
 @patch("lidl_recipe.gemini.requests.post")
-@patch("lidl_recipe.gemini._gemini_api_key", return_value="fake-key")
-def test_suggest_recipes_api_error_exits(mock_key, mock_post):
+def test_suggest_recipes_api_error_exits(mock_post):
     mock_resp = MagicMock()
     mock_resp.ok = False
     mock_resp.status_code = 500
@@ -38,24 +36,15 @@ def test_suggest_recipes_api_error_exits(mock_key, mock_post):
     mock_post.return_value = mock_resp
 
     with pytest.raises(SystemExit):
-        suggest_recipes([{"title": "Ser", "description": ""}])
+        suggest_recipes([{"title": "Ser", "description": ""}], "fake-key")
 
 
 @patch("lidl_recipe.gemini.requests.post")
-@patch("lidl_recipe.gemini._gemini_api_key", return_value="fake-key")
-def test_suggest_recipes_unexpected_response_exits(mock_key, mock_post):
+def test_suggest_recipes_unexpected_response_exits(mock_post):
     mock_resp = MagicMock()
     mock_resp.ok = True
     mock_resp.json.return_value = {"unexpected": "structure"}
     mock_post.return_value = mock_resp
 
     with pytest.raises(SystemExit):
-        suggest_recipes([{"title": "Ser", "description": ""}])
-
-
-@patch.dict("os.environ", {}, clear=True)
-def test_gemini_api_key_missing_exits():
-    from lidl_recipe.gemini import _gemini_api_key
-
-    with pytest.raises(SystemExit):
-        _gemini_api_key()
+        suggest_recipes([{"title": "Ser", "description": ""}], "fake-key")

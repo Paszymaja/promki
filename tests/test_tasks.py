@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, call, patch
 
+from lidl_recipe.config import Config
 from lidl_recipe.tasks import create_shopping_list
 
 
@@ -15,7 +16,8 @@ def test_create_shopping_list_creates_list_and_tasks(mock_get_service):
         {"title": "Mleko UHT", "description": ""},
     ]
 
-    create_shopping_list(items)
+    config = Config(access_token="test")
+    create_shopping_list(items, config)
 
     # Verify tasklist was created with correct title format
     tasklist_call = service.tasklists().insert.call_args
@@ -33,7 +35,8 @@ def test_create_shopping_list_includes_notes_for_description(mock_get_service):
     service.tasklists().insert().execute.return_value = {"id": "list-1"}
 
     items = [{"title": "Ser Gouda", "description": "2.99 zł"}]
-    create_shopping_list(items)
+    config = Config(access_token="test")
+    create_shopping_list(items, config)
 
     task_call = service.tasks().insert.call_args
     body = task_call.kwargs["body"]
@@ -48,7 +51,8 @@ def test_create_shopping_list_no_notes_when_empty_description(mock_get_service):
     service.tasklists().insert().execute.return_value = {"id": "list-1"}
 
     items = [{"title": "Mleko UHT", "description": ""}]
-    create_shopping_list(items)
+    config = Config(access_token="test")
+    create_shopping_list(items, config)
 
     task_call = service.tasks().insert.call_args
     body = task_call.kwargs["body"]
