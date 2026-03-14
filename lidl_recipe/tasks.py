@@ -41,11 +41,13 @@ def create_shopping_list(items: list[dict], config):
     print(f"\nCreated task list: {list_title}")
 
     for item in items:
-        task_body = {"title": item["title"]}
+        valid_until = item.get("valid_until")
+        date_suffix = f" (do {valid_until.strftime('%d.%m')})" if valid_until else ""
+        task_body = {"title": f"{item['title']}{date_suffix}"}
         if item["description"]:
             task_body["notes"] = item["description"]
         service.tasks().insert(tasklist=tasklist_id, body=task_body).execute()
         desc = f" ({item['description'].split(chr(10))[0]})" if item["description"] else ""
-        print(f"  + {item['title']}{desc}")
+        print(f"  + {item['title']}{date_suffix}{desc}")
 
     print(f"\n{len(items)} items added to Google Tasks")
