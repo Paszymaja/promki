@@ -19,7 +19,19 @@ uv sync
 cp .env.example .env
 ```
 
-Fill in `.env`:
+### Login (recommended)
+
+The easiest way to get a token is the built-in browser login:
+
+```bash
+uv sync --extra login          # install playwright
+playwright install chromium    # download browser (first time only)
+uv run lidl-recipe --login     # opens Chromium, log in manually, token saved to .env
+```
+
+### Manual setup
+
+Alternatively, fill in `.env` manually:
 
 - **`LIDL_ACCESS_TOKEN`** — Bearer token from the Lidl Plus API. Get it from https://www.lidl.pl/prm/promotions-list using browser dev tools (Network tab, look for the `Authorization` header).
 - **`GEMINI_API_KEY`** — Free API key from https://aistudio.google.com/apikey (only needed with `--recipes`)
@@ -39,6 +51,9 @@ Fill in `.env`:
 ## Usage
 
 ```bash
+# Log in via browser (saves token to .env)
+uv run lidl-recipe --login
+
 # Activate all coupons (default)
 uv run lidl-recipe
 
@@ -50,11 +65,21 @@ uv run lidl-recipe --recipes
 
 # Both
 uv run lidl-recipe --tasks --recipes
+
+# Debug: dump raw coupon JSON
+uv run lidl-recipe --debug
+```
+
+## Development
+
+```bash
+uv sync
+uv run pytest
 ```
 
 ## Notes
 
-- The Lidl access token expires frequently — you'll need to refresh it from the browser when it stops working.
+- The Lidl access token expires frequently — re-run `--login` when it stops working.
 - Coupons that return 409/412 on activation are silently skipped (already activated or not eligible).
 - Non-food items (titles starting with `*` or percentage-off promos) are filtered out from the item list.
 - `--tasks` further filters to consumables only (food, drinks, cleaning supplies) using a keyword blocklist, excluding electronics, clothing, tools, furniture, etc.

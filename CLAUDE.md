@@ -21,7 +21,10 @@ uv sync --extra login          # include playwright for --login
 playwright install chromium    # download browser (first time only)
 ```
 
-No tests or linter configured.
+```bash
+# Run tests
+uv run pytest
+```
 
 ## Architecture
 
@@ -38,7 +41,7 @@ Package `lidl_recipe/` with modules:
 ## Configuration
 
 All config via `.env` (see `.env.example`):
-- `LIDL_ACCESS_TOKEN` — Bearer token from Lidl Plus (expires frequently, must be refreshed from browser dev tools)
+- `LIDL_ACCESS_TOKEN` — Bearer token from Lidl Plus (use `--login` to capture, or grab manually from browser dev tools)
 - `GEMINI_API_KEY` — Free key from Google AI Studio (only needed with `--recipes`)
 - `LIDL_LANGUAGE` / `LIDL_COUNTRY` — defaults to `pl` / `PL`
 - `credentials.json` — Google OAuth client credentials for Tasks API (only needed with `--tasks`)
