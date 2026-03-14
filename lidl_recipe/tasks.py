@@ -30,15 +30,51 @@ def get_tasks_service(config):
     return build("tasks", "v1", credentials=creds)
 
 
+def find_existing_tasklist(service, title):
+    page_token = None
+    while True:
+        response = service.tasklists().list(maxResults=100, pageToken=page_token).execute()
+        for tasklist in response.get("items", []):
+            if tasklist["title"] == title:
+                return tasklist["id"]
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+    return None
+
+
+def clear_tasks(service, tasklist_id):
+    page_token = None
+    while True:
+        response = service.tasks().list(
+            tasklist=tasklist_id,
+            showCompleted=True,
+            showHidden=True,
+            maxResults=100,
+            pageToken=page_token,
+        ).execute()
+        for task in response.get("items", []):
+            service.tasks().delete(tasklist=tasklist_id, task=task["id"]).execute()
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+
 def create_shopping_list(items: list[dict], config):
     service = get_tasks_service(config)
 
     today = datetime.now().strftime("%d.%m.%Y")
     list_title = f"Lidl promocje {today}"
 
-    tasklist = service.tasklists().insert(body={"title": list_title}).execute()
-    tasklist_id = tasklist["id"]
-    print(f"\nCreated task list: {list_title}")
+    existing_id = find_existing_tasklist(service, list_title)
+    if existing_id:
+        tasklist_id = existing_id
+        clear_tasks(service, tasklist_id)
+        print(f"\nUpdated existing task list: {list_title}")
+    else:
+        tasklist = service.tasklists().insert(body={"title": list_title}).execute()
+        tasklist_id = tasklist["id"]
+        print(f"\nCreated task list: {list_title}")
 
     for item in items:
         valid_until = item.get("valid_until")
