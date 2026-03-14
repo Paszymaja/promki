@@ -22,13 +22,14 @@ No tests or linter configured.
 
 ## Architecture
 
-Single-file package (`lidl_recipe/__init__.py`) with five sections:
+Package `lidl_recipe/` with modules:
 
-- **LidlApi** — HTTP client wrapping the Lidl Plus coupons API (Bearer token auth)
-- **Coupon processing** — `normalize_coupons()` handles varying API response shapes; `fetch_and_activate_coupons()` activates inactive coupons with rate limiting; `extract_discount_items()` filters to food-only items
-- **Google Tasks** — `create_shopping_list()` creates a dated task list with discounted items via OAuth2
-- **Recipe generation** — `suggest_recipes()` sends item list to Google Gemini free API, responses are in Polish
-- **main()** — orchestrates the flow: load env → fetch coupons → activate → optionally create tasks/recipes
+- **`api.py`** — `LidlApi` HTTP client wrapping the Lidl Plus coupons API (Bearer token auth)
+- **`coupons.py`** — `normalize_coupons()` handles varying API response shapes; `fetch_and_activate_coupons()` activates inactive coupons with rate limiting; `extract_discount_items()` extracts title + discount info; `filter_consumables()` uses keyword blocklist to exclude non-consumables
+- **`tasks.py`** — `create_shopping_list()` creates a dated Google Tasks list via OAuth2
+- **`gemini.py`** — `suggest_recipes()` sends item list to Google Gemini free API, responses are in Polish
+- **`cli.py`** — `main()` orchestrates the flow: load env → fetch coupons → activate → optionally create tasks/recipes
+- **`__init__.py`** — re-exports `main` for the `lidl-recipe` entrypoint
 
 ## Configuration
 

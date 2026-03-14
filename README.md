@@ -7,7 +7,7 @@ CLI tool that fetches your Lidl Plus coupons, auto-activates them, and optionall
 1. Fetches all available coupons from the Lidl Plus API
 2. Activates any inactive coupons that haven't expired yet
 3. Extracts food item names from coupon titles
-4. Optionally: creates a Google Tasks shopping list with discounted items (`--tasks`)
+4. Optionally: creates a Google Tasks shopping list with consumables only (`--tasks`)
 5. Optionally: sends the list to Gemini for recipe suggestions in Polish (`--recipes`)
 
 ## Setup
@@ -42,7 +42,7 @@ Fill in `.env`:
 # Activate all coupons (default)
 uv run lidl-recipe
 
-# Activate coupons + create shopping list in Google Tasks
+# Activate coupons + create shopping list in Google Tasks (consumables only)
 uv run lidl-recipe --tasks
 
 # Activate coupons + get recipe suggestions via Gemini
@@ -56,4 +56,5 @@ uv run lidl-recipe --tasks --recipes
 
 - The Lidl access token expires frequently — you'll need to refresh it from the browser when it stops working.
 - Coupons that return 409/412 on activation are silently skipped (already activated or not eligible).
-- Non-food items (titles starting with `*` or percentage-off promos) are filtered out.
+- Non-food items (titles starting with `*` or percentage-off promos) are filtered out from the item list.
+- `--tasks` further filters to consumables only (food, drinks, cleaning supplies) using a keyword blocklist, excluding electronics, clothing, tools, furniture, etc.
