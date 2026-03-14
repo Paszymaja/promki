@@ -1,6 +1,6 @@
 import re
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import requests
 
@@ -91,7 +91,15 @@ def extract_discount_items(coupons: list[dict]) -> list[dict]:
             if disc_desc and disc_desc != title:
                 details.append(disc_desc)
 
-        items.append({"title": title, "description": "\n".join(details)})
+        valid_until = None
+        end = coupon.get("validity", {}).get("end", "")
+        if end:
+            try:
+                valid_until = datetime.fromisoformat(end).date()
+            except ValueError:
+                pass
+
+        items.append({"title": title, "description": "\n".join(details), "valid_until": valid_until})
     return items
 
 

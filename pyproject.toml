@@ -10,9 +10,17 @@ dependencies = [
     "google-auth-oauthlib>=1.0.0",
 ]
 
+[project.optional-dependencies]
+login = ["playwright>=1.40.0"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
 
 [project.scripts]
 lidl-recipe = "lidl_recipe:main"

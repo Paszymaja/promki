@@ -20,15 +20,27 @@ def main():
     parser = argparse.ArgumentParser(description="Activate Lidl Plus coupons and optionally get recipe suggestions")
     parser.add_argument("--recipes", action="store_true", help="suggest recipes using Gemini based on discounted items")
     parser.add_argument("--tasks", action="store_true", help="create a Google Tasks shopping list with discounted items")
+    parser.add_argument("--login", action="store_true", help="open browser to capture Lidl Plus auth token")
     parser.add_argument("--debug", action="store_true", help="dump raw coupon JSON and exit")
     args = parser.parse_args()
 
     load_dotenv()
 
+    if args.login:
+        from .login import capture_token, save_token_to_env
+
+        country = os.getenv("LIDL_COUNTRY", "PL")
+        token = capture_token(country=country)
+        save_token_to_env(token)
+        print("Token saved to .env")
+        if not args.recipes and not args.tasks and not args.debug:
+            return
+        load_dotenv(override=True)
+
     access_token = os.getenv("LIDL_ACCESS_TOKEN", "")
     if not access_token:
         print("No LIDL_ACCESS_TOKEN found in .env")
-        print("Get it from https://www.lidl.pl/prm/promotions-list (browser dev tools → Network → Authorization header)")
+        print("Run: uv run lidl-recipe --login")
         sys.exit(1)
 
     language = os.getenv("LIDL_LANGUAGE", "pl")
@@ -48,7 +60,8 @@ def main():
         print(f"\n{len(items)} discounted items:")
         for item in items:
             desc = f" — {item['description'].split(chr(10))[0]}" if item["description"] else ""
-            print(f"  - {item['title']}{desc}")
+            valid = f"  (do {item['valid_until'].strftime('%d.%m')})" if item.get("valid_until") else ""
+            print(f"  - {item['title']}{desc}{valid}")
 
     if args.tasks:
         if not items:
