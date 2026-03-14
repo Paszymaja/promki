@@ -1,0 +1,11 @@
+[project]
+name = "lidl-recipe"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "requests>=2.32.0",
+]
+
+[project.scripts]
+lidl-recipe = "main:main"
