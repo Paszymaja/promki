@@ -117,6 +117,56 @@ def extract_discount_items(coupons: list[dict]) -> list[str]:
     return items
 
 
+# --- Google Tasks ---
+
+
+TASKS_SCOPES = ["https://www.googleapis.com/auth/tasks"]
+TASKS_TOKEN_FILE = "tasks_token.json"
+TASKS_CREDENTIALS_FILE = "credentials.json"
+
+
+def get_tasks_service():
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from googleapiclient.discovery import build
+
+    creds = None
+    if os.path.exists(TASKS_TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TASKS_TOKEN_FILE, TASKS_SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            if not os.path.exists(TASKS_CREDENTIALS_FILE):
+                print(f"Missing {TASKS_CREDENTIALS_FILE}")
+                print("Download OAuth client credentials from https://console.cloud.google.com/apis/credentials")
+                sys.exit(1)
+            flow = InstalledAppFlow.from_client_secrets_file(TASKS_CREDENTIALS_FILE, TASKS_SCOPES)
+            creds = flow.run_local_server(port=8085)
+        with open(TASKS_TOKEN_FILE, "w") as f:
+            f.write(creds.to_json())
+
+    return build("tasks", "v1", credentials=creds)
+
+
+def create_shopping_list(items: list[str]):
+    service = get_tasks_service()
+
+    today = datetime.now().strftime("%d.%m.%Y")
+    list_title = f"Lidl promocje {today}"
+
+    tasklist = service.tasklists().insert(body={"title": list_title}).execute()
+    tasklist_id = tasklist["id"]
+    print(f"\nCreated task list: {list_title}")
+
+    for item in items:
+        service.tasks().insert(tasklist=tasklist_id, body={"title": item}).execute()
+        print(f"  + {item}")
+
+    print(f"\n{len(items)} items added to Google Tasks")
+
+
 # --- Recipes ---
 
 
@@ -165,6 +215,7 @@ def suggest_recipes(items: list[str]) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Activate Lidl Plus coupons and optionally get recipe suggestions")
     parser.add_argument("--recipes", action="store_true", help="suggest recipes using Gemini based on discounted items")
+    parser.add_argument("--tasks", action="store_true", help="create a Google Tasks shopping list with discounted items")
     args = parser.parse_args()
 
     load_dotenv()
@@ -187,6 +238,12 @@ def main():
         print(f"\n{len(items)} discounted items:")
         for item in items:
             print(f"  - {item}")
+
+    if args.tasks:
+        if not items:
+            print("No food items found for shopping list.")
+            return
+        create_shopping_list(items)
 
     if args.recipes:
         if not items:
