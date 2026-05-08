@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 credentials.json
 tasks_token.json
+lidl_session.json

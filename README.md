@@ -29,6 +29,8 @@ playwright install chromium    # download browser (first time only)
 uv run lidl-recipe --login     # opens Chromium, log in manually, token saved to .env
 ```
 
+The browser session is saved to `lidl_session.json` after the first login. On subsequent token refreshes the saved session is replayed silently in headless Chromium — no manual interaction needed. If the access token is rejected (HTTP 401), the CLI auto-refreshes it before retrying, so you typically only need `--login` once until the underlying session itself expires.
+
 ### Manual setup
 
 Alternatively, fill in `.env` manually:
@@ -77,7 +79,7 @@ uv run pytest
 
 ## Notes
 
-- The Lidl access token expires frequently — re-run `--login` when it stops working.
+- The Lidl access token expires frequently, but is refreshed automatically using the saved `lidl_session.json`. Re-run `--login` only when the session itself expires.
 - Coupons that return 409/412 on activation are silently skipped (already activated or not eligible).
 - Non-food items (titles starting with `*` or percentage-off promos) are filtered out from the item list.
 - `--tasks` further filters to consumables only (food, drinks, cleaning supplies) using a keyword blocklist, excluding electronics, clothing, tools, furniture, etc.

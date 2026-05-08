@@ -57,3 +57,7 @@ class Config:
     @property
     def tasks_credentials_file(self) -> Path:
         return self.project_root / "credentials.json"
+
+    @property
+    def lidl_session_file(self) -> Path:
+        return self.project_root / "lidl_session.json"
