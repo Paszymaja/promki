@@ -1,3 +1,4 @@
+import sqlite3
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,10 +27,11 @@ def _make_coupons():
     ]
 
 
+@patch("lidl_recipe.cli.save_snapshot")
 @patch("lidl_recipe.cli.fetch_and_activate_coupons")
 @patch("lidl_recipe.cli.LidlApi")
 @patch("lidl_recipe.cli.Config.from_env")
-def test_main_displays_items_with_dates(mock_from_env, mock_api_cls, mock_fetch, capsys, monkeypatch):
+def test_main_displays_items_with_dates(mock_from_env, mock_api_cls, mock_fetch, mock_save, capsys, monkeypatch):
     mock_from_env.return_value = Config(access_token="fake-token")
     monkeypatch.setattr("sys.argv", ["lidl-recipe"])
     mock_fetch.return_value = _make_coupons()
@@ -45,11 +47,13 @@ def test_main_displays_items_with_dates(mock_from_env, mock_api_cls, mock_fetch,
     assert "(do" not in mleko_line
 
 
+@patch("lidl_recipe.cli._refresh_token")
 @patch("lidl_recipe.cli.fetch_and_activate_coupons")
 @patch("lidl_recipe.cli.LidlApi")
 @patch("lidl_recipe.cli.Config.from_env")
-def test_main_no_token_exits(mock_from_env, mock_api_cls, mock_fetch, monkeypatch):
+def test_main_no_token_exits(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, monkeypatch):
     mock_from_env.return_value = Config(access_token="")
+    mock_refresh.return_value = False
     monkeypatch.setattr("sys.argv", ["lidl-recipe"])
 
     with pytest.raises(SystemExit) as exc_info:
@@ -110,11 +114,12 @@ def test_refresh_token_falls_back_to_interactive(mock_capture):
     config.save_token.assert_called_once_with("interactive-token")
 
 
+@patch("lidl_recipe.cli.save_snapshot")
 @patch("lidl_recipe.cli._refresh_token")
 @patch("lidl_recipe.cli.fetch_and_activate_coupons")
 @patch("lidl_recipe.cli.LidlApi")
 @patch("lidl_recipe.cli.Config.from_env")
-def test_main_retries_on_401(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, monkeypatch):
+def test_main_retries_on_401(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, mock_save, monkeypatch):
     config = Config(access_token="stale-token")
     mock_from_env.return_value = config
     monkeypatch.setattr("sys.argv", ["lidl-recipe"])
@@ -191,3 +196,103 @@ def test_main_no_token_attempts_silent_refresh_first(mock_from_env, mock_api_cls
     mock_refresh.assert_called_once()
     assert mock_refresh.call_args.kwargs["allow_interactive"] is False
     mock_fetch.assert_not_called()
+
+
+@patch("lidl_recipe.cli.diff_latest")
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_main_diff_flag_invokes_diff(mock_from_env, mock_api_cls, mock_fetch, mock_save, mock_diff, capsys, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
+    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--diff"])
+    mock_fetch.return_value = _make_coupons()
+    mock_diff.return_value = {
+        "latest": "t2",
+        "previous": "t1",
+        "added": [{"title": "Brand New Coupon"}],
+        "removed": [],
+        "changed": [],
+    }
+
+    main()
+
+    mock_save.assert_called_once()
+    mock_diff.assert_called_once()
+    assert "Brand New Coupon" in capsys.readouterr().out
+
+
+@patch("lidl_recipe.cli.diff_latest")
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_main_continues_when_save_snapshot_fails(mock_from_env, mock_api_cls, mock_fetch, mock_save, mock_diff, capsys, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
+    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+    mock_fetch.return_value = _make_coupons()
+    mock_save.side_effect = sqlite3.OperationalError("disk full")
+
+    main()  # must not raise
+
+    output = capsys.readouterr().out
+    assert "Warning" in output and "disk full" in output
+    assert "Ser Gouda" in output  # downstream display still happens
+    mock_diff.assert_not_called()
+
+
+@patch("lidl_recipe.cli.diff_latest")
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_main_continues_when_diff_fails(mock_from_env, mock_api_cls, mock_fetch, mock_save, mock_diff, capsys, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
+    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--diff"])
+    mock_fetch.return_value = _make_coupons()
+    mock_diff.side_effect = sqlite3.DatabaseError("corrupt")
+
+    main()
+
+    output = capsys.readouterr().out
+    assert "Warning" in output and "corrupt" in output
+
+
+@patch("lidl_recipe.cli.diff_latest")
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_main_continues_when_save_raises_schema_version_error(mock_from_env, mock_api_cls, mock_fetch, mock_save, mock_diff, capsys, monkeypatch, tmp_path):
+    from lidl_recipe.db import SchemaVersionError
+
+    mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
+    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+    mock_fetch.return_value = _make_coupons()
+    mock_save.side_effect = SchemaVersionError("schema mismatch — delete coupons.db")
+
+    main()  # must not raise
+
+    output = capsys.readouterr().out
+    assert "Warning" in output and "schema mismatch" in output
+    assert "Ser Gouda" in output
+
+
+@patch("lidl_recipe.cli.diff_latest")
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli._refresh_token")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_login_with_diff_falls_through_to_fetch(mock_from_env, mock_refresh, mock_api_cls, mock_fetch, mock_save, mock_diff, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
+    mock_refresh.return_value = True
+    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--login", "--diff"])
+    mock_fetch.return_value = _make_coupons()
+    mock_diff.return_value = None
+
+    main()
+
+    mock_fetch.assert_called_once()
+    mock_save.assert_called_once()
+    mock_diff.assert_called_once()

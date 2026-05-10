@@ -233,16 +233,45 @@ def test_filter_consumables_case_insensitive():
 
 
 @pytest.mark.parametrize("title", [
-    "Robot kuchenny",        # electronics
-    "Spodnie męskie",        # clothing
-    "Kettlebell 12kg",       # fitness
-    "Plecak turystyczny",    # bags
-    "Szklanki komplet",      # kitchenware
-    "Zabawki dla dzieci",    # toys
-    "Telewizor 55 cali",     # electronics
-    "Meble ogrodowe",        # furniture
-    "Narzędzia warsztatowe", # tools
-    "Akcesoria łazienkowe",  # accessories
+    "Robot kuchenny",                                # electronics
+    "Spodnie męskie",                                # clothing
+    "Kettlebell 12kg",                               # fitness
+    "Plecak turystyczny",                            # bags
+    "Szklanki komplet",                              # kitchenware
+    "Zabawki dla dzieci",                            # toys
+    "Telewizor 55 cali",                             # electronics
+    "Meble ogrodowe",                                # furniture
+    "Narzędzia warsztatowe",                         # tools
+    "Akcesoria łazienkowe",                          # accessories
+    "Saturator Sodastream Gaia",                     # appliance
+    "Saturator do wody gazowanej Gaia",              # appliance
+    "Gąbki Scrub Daddy lub Mommy",                   # cleaning
+    "Regał łazienkowy z bambusa",                    # furniture
+    "Frytkownica beztłuszczowa Air Fryer 3,6 L",     # appliance
+    "Kuchnia drewniana dla dzieci",                  # toy
+    "Dmuchany zamek z koszem do koszykówki",         # toy
+    "Huśtawka prostokątna XL",                       # toy
+    "Legowisko dla psa, grzejące i chłodzące",       # pet
+    "Wyrzutnia piłek tenisowych lub piłki tenisowe", # sports
+    "Basen dla psa",                                 # pet
+    "Legowisko lub składany leżak dla psa",          # pet
+    "Ekspres kolbowy, 1100 W",                       # appliance
+    "Blender ręczny",                                # appliance
+    "Krajalnica elektryczna",                        # appliance
+    "Deska SUP jednokomorowa Aquaview",              # sports
+    "Deska SUP dwukomorowa",                         # sports
+    "Wybrana pościel muślinowa",                     # bedding
 ])
 def test_filter_consumables_keyword_categories(title):
     assert filter_consumables([{"title": title}]) == []
+
+
+@pytest.mark.parametrize("title", [
+    "Frytki belgijskie",      # frytka != frytkownica
+    "Kawa ekspresowa Jacobs", # ekspresowa != ekspres kolb
+    "Deska serów francuskich",# deska != deska sup
+    "Wino leżakowane",        # leżakowane != leżak (substring guard)
+])
+def test_filter_consumables_does_not_overmatch_food(title):
+    """Sanity check: substrings of food words must not trigger non-consumable filter."""
+    assert filter_consumables([{"title": title}]) == [{"title": title}]

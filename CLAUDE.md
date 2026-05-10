@@ -13,6 +13,7 @@ CLI tool that fetches Lidl Plus coupons, auto-activates inactive ones, and optio
 uv run lidl-recipe
 uv run lidl-recipe --tasks     # create Google Tasks shopping list
 uv run lidl-recipe --recipes   # get Gemini recipe suggestions
+uv run lidl-recipe --diff      # show what changed vs the previous snapshot
 uv run lidl-recipe --login     # open browser, log in, token saved automatically
 
 # Install dependencies
@@ -36,7 +37,8 @@ Package `lidl_recipe/` with modules:
 - **`tasks.py`** — `create_shopping_list()` creates a dated Google Tasks list via OAuth2
 - **`gemini.py`** — `suggest_recipes()` sends item list to Google Gemini free API, responses are in Polish
 - **`login.py`** — `capture_token(session_file, silent)` uses Playwright to capture the Lidl Plus Bearer token. Persists `storage_state` to `lidl_session.json` so subsequent calls can replay the session headlessly (`silent=True`); falls back to interactive Chromium when no saved session is available. CLI auto-invokes silent refresh on missing token or HTTP 401.
-- **`cli.py`** — `main()` orchestrates the flow: load config → fetch coupons → activate → optionally create tasks/recipes
+- **`db.py`** — SQLite snapshot store at `config.db_file` (`coupons.db`). Two-table schema (`runs` + `coupon_observations`) versioned via `PRAGMA user_version`; `save_snapshot()` always records a run (even when empty); `diff_latest()` compares the two most recent runs on `(title, discount_title, discount_description, valid_end, is_activated)`; `format_diff()` returns lines, `print_diff()` writes to stdout. Schema mismatches raise `SchemaVersionError`. All timestamps written via `_utc_now_iso()` so lex-sort matches chronological order.
+- **`cli.py`** — `main()` orchestrates the flow: reconfigure stdio to UTF-8 (Windows cp1250 can't render some Polish/bidi chars) → load config → fetch coupons → activate → save snapshot → optionally show diff/tasks/recipes. DB failures (`sqlite3.Error`, `SchemaVersionError`) are caught and logged as warnings; they never abort the run.
 - **`__init__.py`** — re-exports `main` for the `lidl-recipe` entrypoint
 
 ## Configuration
@@ -46,3 +48,4 @@ All config via `.env` (see `.env.example`), loaded centrally by `Config.from_env
 - `GEMINI_API_KEY` — Free key from Google AI Studio (only needed with `--recipes`)
 - `credentials.json` — Google OAuth client credentials for Tasks API (only needed with `--tasks`)
 - Google Tasks OAuth uses fixed port 8085 — redirect URI `http://localhost:8085/` must be registered in Cloud Console
+- `coupons.db` — SQLite snapshot history, created on first run at `config.db_file` (project root). Gitignored. To reset, delete the file; the schema is recreated automatically.

@@ -6,9 +6,11 @@ CLI tool that fetches your Lidl Plus coupons, auto-activates them, and optionall
 
 1. Fetches all available coupons from the Lidl Plus API
 2. Activates any inactive coupons that haven't expired yet
-3. Extracts food item names from coupon titles
-4. Optionally: creates a Google Tasks shopping list with consumables only (`--tasks`)
-5. Optionally: sends the list to Gemini for recipe suggestions in Polish (`--recipes`)
+3. Saves a snapshot of the fetched coupons to `coupons.db` (SQLite) so changes can be diffed across runs
+4. Extracts food item names from coupon titles
+5. Optionally: shows what changed since the previous run (`--diff`)
+6. Optionally: creates a Google Tasks shopping list with consumables only (`--tasks`)
+7. Optionally: sends the list to Gemini for recipe suggestions in Polish (`--recipes`)
 
 ## Setup
 
@@ -63,6 +65,9 @@ uv run lidl-recipe --tasks
 # Activate coupons + get recipe suggestions via Gemini
 uv run lidl-recipe --recipes
 
+# Show what changed since the previous run
+uv run lidl-recipe --diff
+
 # Both
 uv run lidl-recipe --tasks --recipes
 
@@ -83,3 +88,4 @@ uv run pytest
 - Coupons that return 409/412 on activation are silently skipped (already activated or not eligible).
 - Non-food items (titles starting with `*` or percentage-off promos) are filtered out from the item list.
 - `--tasks` further filters to consumables only (food, drinks, cleaning supplies) using a keyword blocklist, excluding electronics, clothing, tools, furniture, etc.
+- Every run records a snapshot in `coupons.db` (one row per fetch in `runs`, one row per coupon in `coupon_observations`). `--diff` compares the two most recent runs and reports added/removed coupons plus changes to title, discount, expiry, or activation state. The DB is gitignored.

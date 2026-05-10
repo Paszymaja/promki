@@ -13,11 +13,19 @@ _NON_CONSUMABLE_KEYWORDS = [
     "kettlebell", "hantle", "hantel", "stojak", "ćwicze",
     "plecak", "torba", "walizk",
     "szklan", "garnek", "patelni", "nóż", "noże",
-    "zabawk", "klock",
+    "zabawk", "klock", "kuchnia drewn", "dmuchan", "huśtawk",
     "telewiz", "laptop", "tablet", "słuchaw", "głośnik",
     "mebl", "fotel", "krzesł", "stół", "biurk", "szafk",
     "narzędzi", "wiertark", "wkrętak", "klucz",
-    "akcesori", "zestaw", "koszula"
+    "akcesori", "zestaw", "koszula",
+    # Kitchen / household appliances
+    "ekspres kolb", "blender", "krajalnic", "frytkow", "saturator", "gąbk", "regał",
+    # Sports & outdoor
+    "deska sup", "tenis", "basen",
+    # Pet supplies (legowisk + dla psa/kota; "leżak" alone would match "leżakowane" wine)
+    "legowisk", "dla psa", "dla kota",
+    # Bedding
+    "pościel",
 ]
 
 

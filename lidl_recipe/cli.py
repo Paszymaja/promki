@@ -1,5 +1,6 @@
 import argparse
 import json
+import sqlite3
 import sys
 
 import requests
@@ -12,6 +13,7 @@ from .coupons import (
     filter_consumables,
     normalize_coupons,
 )
+from .db import SchemaVersionError, diff_latest, print_diff, save_snapshot
 
 
 def _refresh_token(config: Config, *, allow_interactive: bool) -> bool:
@@ -27,11 +29,21 @@ def _refresh_token(config: Config, *, allow_interactive: bool) -> bool:
     return True
 
 
+def _force_utf8_stdio() -> None:
+    # Windows defaults stdout to cp1250, which can't encode bidi marks (‎)
+    # or some emoji/CJK glyphs that occasionally appear in Lidl coupon titles.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main():
+    _force_utf8_stdio()
     parser = argparse.ArgumentParser(description="Activate Lidl Plus coupons and optionally get recipe suggestions")
     parser.add_argument("--recipes", action="store_true", help="suggest recipes using Gemini based on discounted items")
     parser.add_argument("--tasks", action="store_true", help="create a Google Tasks shopping list with discounted items")
     parser.add_argument("--login", action="store_true", help="refresh Lidl Plus auth token (silent if session is saved)")
+    parser.add_argument("--diff", action="store_true", help="show what changed vs the previous snapshot")
     parser.add_argument("--debug", action="store_true", help="dump raw coupon JSON and exit")
     args = parser.parse_args()
 
@@ -43,7 +55,7 @@ def main():
         if not _refresh_token(config, allow_interactive=True):
             sys.exit("Login failed.")
         print("Token saved to .env")
-        if not args.recipes and not args.tasks and not args.debug:
+        if not args.recipes and not args.tasks and not args.debug and not args.diff:
             return
 
     if not config.access_token and not _refresh_token(config, allow_interactive=False):
@@ -69,6 +81,17 @@ def main():
             coupons = fetch_and_activate_coupons(api)
         else:
             raise
+
+    try:
+        save_snapshot(config.db_file, coupons)
+    except (sqlite3.Error, SchemaVersionError) as e:
+        print(f"Warning: failed to save coupon snapshot: {e}")
+
+    if args.diff:
+        try:
+            print_diff(diff_latest(config.db_file))
+        except (sqlite3.Error, SchemaVersionError) as e:
+            print(f"Warning: failed to compute diff: {e}")
 
     items = extract_discount_items(coupons)
     if items:

@@ -61,3 +61,7 @@ class Config:
     @property
     def lidl_session_file(self) -> Path:
         return self.project_root / "lidl_session.json"
+
+    @property
+    def db_file(self) -> Path:
+        return self.project_root / "coupons.db"
