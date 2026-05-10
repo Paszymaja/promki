@@ -278,6 +278,109 @@ def test_main_continues_when_save_raises_schema_version_error(mock_from_env, moc
     assert "Ser Gouda" in output
 
 
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_recipes_dispatches_to_ollama(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(
+        access_token="fake-token",
+        recipe_provider="ollama",
+        ollama_url="http://localhost:11434",
+        project_root=tmp_path,
+    )
+    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--recipes"])
+    mock_fetch.return_value = _make_coupons()
+
+    with patch("lidl_recipe.ollama.suggest_recipes") as mock_ollama, patch("lidl_recipe.gemini.suggest_recipes") as mock_gemini:
+        mock_ollama.return_value = "Polish recipe text"
+        main()
+
+    mock_ollama.assert_called_once()
+    assert mock_ollama.call_args.args[1] == "http://localhost:11434"
+    mock_gemini.assert_not_called()
+
+
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_recipes_dispatches_to_gemini_by_default(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(
+        access_token="fake-token",
+        gemini_api_key="fake-key",
+        recipe_provider="gemini",
+        project_root=tmp_path,
+    )
+    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--recipes"])
+    mock_fetch.return_value = _make_coupons()
+
+    with patch("lidl_recipe.gemini.suggest_recipes") as mock_gemini, patch("lidl_recipe.ollama.suggest_recipes") as mock_ollama:
+        mock_gemini.return_value = "Recipe"
+        main()
+
+    mock_gemini.assert_called_once()
+    mock_ollama.assert_not_called()
+
+
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_recipes_invalid_provider_exits(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(
+        access_token="fake-token",
+        recipe_provider="bogus",
+        project_root=tmp_path,
+    )
+    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--recipes"])
+    mock_fetch.return_value = _make_coupons()
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == 1
+
+
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_invalid_provider_does_not_exit_without_recipes_flag(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
+    # Eager validation regression guard: --diff/--tasks/plain runs must not exit
+    # just because RECIPE_PROVIDER happens to be invalid in the user's .env.
+    mock_from_env.return_value = Config(
+        access_token="fake-token",
+        recipe_provider="bogus",
+        project_root=tmp_path,
+    )
+    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+    mock_fetch.return_value = _make_coupons()
+
+    main()  # must not raise
+
+
+@patch("lidl_recipe.cli.save_snapshot")
+@patch("lidl_recipe.cli.fetch_and_activate_coupons")
+@patch("lidl_recipe.cli.LidlApi")
+@patch("lidl_recipe.cli.Config.from_env")
+def test_recipes_recipe_error_exits_cleanly(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
+    from lidl_recipe.recipes import RecipeError
+
+    mock_from_env.return_value = Config(
+        access_token="fake-token",
+        recipe_provider="ollama",
+        project_root=tmp_path,
+    )
+    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--recipes"])
+    mock_fetch.return_value = _make_coupons()
+
+    with patch("lidl_recipe.ollama.suggest_recipes") as mock_ollama:
+        mock_ollama.side_effect = RecipeError("Ollama API failed (500): boom")
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+    assert "Ollama API failed" in str(exc_info.value)
+
+
 @patch("lidl_recipe.cli.diff_latest")
 @patch("lidl_recipe.cli.save_snapshot")
 @patch("lidl_recipe.cli.fetch_and_activate_coupons")

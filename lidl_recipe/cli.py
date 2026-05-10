@@ -14,6 +14,7 @@ from .coupons import (
     normalize_coupons,
 )
 from .db import SchemaVersionError, diff_latest, print_diff, save_snapshot
+from .recipes import RecipeError
 
 
 def _refresh_token(config: Config, *, allow_interactive: bool) -> bool:
@@ -117,10 +118,20 @@ def main():
         if not items:
             print("No food items found for recipe suggestions.")
             return
-        print("\nAsking for recipe suggestions...\n")
-        from .gemini import suggest_recipes
+        provider = config.require_recipe_provider()
+        try:
+            if provider == "ollama":
+                from .ollama import suggest_recipes
 
-        recipes = suggest_recipes(items, config.require_gemini_key())
+                print("\nAsking Ollama for recipe suggestions...\n")
+                recipes = suggest_recipes(items, config.ollama_url)
+            else:
+                from .gemini import suggest_recipes
+
+                print("\nAsking Gemini for recipe suggestions...\n")
+                recipes = suggest_recipes(items, config.require_gemini_key())
+        except RecipeError as e:
+            sys.exit(str(e))
         print(recipes)
 
 

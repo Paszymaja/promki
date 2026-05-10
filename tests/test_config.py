@@ -29,6 +29,40 @@ def test_require_gemini_key_returns_key():
     assert config.require_gemini_key() == "my-key"
 
 
+def test_require_recipe_provider_accepts_valid():
+    assert Config(recipe_provider="gemini").require_recipe_provider() == "gemini"
+    assert Config(recipe_provider="ollama").require_recipe_provider() == "ollama"
+
+
+def test_require_recipe_provider_rejects_invalid():
+    config = Config(recipe_provider="bogus")
+    with pytest.raises(SystemExit) as exc_info:
+        config.require_recipe_provider()
+    assert exc_info.value.code == 1
+
+
+@pytest.fixture
+def isolated_env(monkeypatch):
+    # Stop Config.from_env() from reading the real .env so env-var assertions are deterministic.
+    monkeypatch.setattr("lidl_recipe.config.load_dotenv", lambda *a, **kw: None)
+
+
+def test_from_env_does_not_validate_recipe_provider(monkeypatch, isolated_env):
+    monkeypatch.setenv("RECIPE_PROVIDER", "bogus")
+    cfg = Config.from_env()
+    assert cfg.recipe_provider == "bogus"  # raw value stored, no eager exit
+
+
+def test_from_env_normalizes_recipe_provider(monkeypatch, isolated_env):
+    monkeypatch.setenv("RECIPE_PROVIDER", "  Ollama  ")
+    assert Config.from_env().recipe_provider == "ollama"
+
+
+def test_ollama_url_default_when_unset(monkeypatch, isolated_env):
+    monkeypatch.delenv("OLLAMA_URL", raising=False)
+    assert Config.from_env().ollama_url == "http://localhost:11434"
+
+
 def test_tasks_token_file_relative_to_project_root(tmp_path):
     config = Config(project_root=tmp_path)
     assert config.tasks_token_file == tmp_path / "tasks_token.json"

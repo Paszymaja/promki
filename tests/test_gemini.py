@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from lidl_recipe.gemini import suggest_recipes
+from lidl_recipe.recipes import RecipeError
 
 
 @patch("lidl_recipe.gemini.requests.post")
@@ -35,7 +36,7 @@ def test_suggest_recipes_api_error_exits(mock_post):
     mock_resp.text = "Internal Server Error"
     mock_post.return_value = mock_resp
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(RecipeError):
         suggest_recipes([{"title": "Ser", "description": ""}], "fake-key")
 
 
@@ -46,5 +47,5 @@ def test_suggest_recipes_unexpected_response_exits(mock_post):
     mock_resp.json.return_value = {"unexpected": "structure"}
     mock_post.return_value = mock_resp
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(RecipeError):
         suggest_recipes([{"title": "Ser", "description": ""}], "fake-key")
