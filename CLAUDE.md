@@ -29,7 +29,7 @@ uv run pytest
 
 ## Architecture
 
-Package `lidl_recipe/` with modules:
+Package `promki/` with modules:
 
 - **`config.py`** — `Config` dataclass centralizing all env loading, validation, and `.env` writing
 - **`api.py`** — `LidlApi` HTTP client wrapping the Lidl Plus coupons API (Bearer token auth)
@@ -42,7 +42,7 @@ Package `lidl_recipe/` with modules:
 - **`db.py`** — SQLite snapshot store at `config.db_file` (`coupons.db`). Two-table schema (`runs` + `coupon_observations`) versioned via `PRAGMA user_version`; `save_snapshot()` always records a run (even when empty); `diff_latest()` compares the two most recent runs on `(title, discount_title, discount_description, valid_end, is_activated)`. Schema v2 adds `source` column (`"lidl"` or `"kaufland"`). Schema mismatches raise `SchemaVersionError`. All timestamps written via `_utc_now_iso()` so lex-sort matches chronological order.
 - **`cli.py`** — `main()` orchestrates the flow: reconfigure stdio to UTF-8 (Windows cp1250 can't render some Polish/bidi chars) → load config → fetch Lidl coupons → activate → fetch Kaufland coupons → activate → save snapshots → optionally show diff/tasks/recipes. DB failures (`sqlite3.Error`, `SchemaVersionError`) are caught and logged as warnings; they never abort the run.
 - **`kaufland/`** — Kaufland Card XTRA subpackage:
-  - **`api.py`** — `KauflandApi` HTTP client using `requests.Session` with cookies loaded from Playwright storage state. Endpoints are AEM-proxied (`/.klxtracoupons.json`, `/.klcouponactivation.json`).
+  - **`api.py`** — `KauflandApi` HTTP client using `requests.Session` with Bearer token loaded from localStorage in the Playwright storage state and session cookies. Endpoints: `/.klxtracoupons.json` (GET coupons), `/.klcouponactivation.json` (POST form `gcn` + `status=activate`).
   - **`coupons.py`** — `normalize_kaufland_coupons()` handles various API response shapes; `fetch_and_activate_kaufland_coupons()` activates only free coupons (skips points-required); `_is_free_coupon()` filters out premium/points coupons.
   - **`login.py`** — `capture_cookies(session_file, silent)` uses Playwright to log into Kaufland via Google OAuth through Cidaas OIDC. Captures full browser storage state to `kaufland_session.json`.
 - **`__init__.py`** — re-exports `main` for the `promki` entrypoint
