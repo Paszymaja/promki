@@ -1,5 +1,5 @@
 [project]
-name = "lidl-recipe"
+name = "promki"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
@@ -23,4 +23,4 @@ dev = [
 ]
 
 [project.scripts]
-lidl-recipe = "lidl_recipe:main"
+promki = "promki:main"

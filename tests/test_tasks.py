@@ -1,11 +1,11 @@
 from datetime import date
 from unittest.mock import MagicMock, call, patch
 
-from lidl_recipe.config import Config
-from lidl_recipe.tasks import create_shopping_list
+from promki.config import Config
+from promki.tasks import create_shopping_list
 
 
-@patch("lidl_recipe.tasks.get_tasks_service")
+@patch("promki.tasks.get_tasks_service")
 def test_create_shopping_list_creates_new_list(mock_get_service):
     service = MagicMock()
     mock_get_service.return_value = service
@@ -30,7 +30,7 @@ def test_create_shopping_list_creates_new_list(mock_get_service):
     assert service.tasks().insert().execute.call_count == 2
 
 
-@patch("lidl_recipe.tasks.get_tasks_service")
+@patch("promki.tasks.get_tasks_service")
 def test_create_shopping_list_updates_existing_list(mock_get_service):
     from datetime import datetime
 
@@ -63,7 +63,7 @@ def test_create_shopping_list_updates_existing_list(mock_get_service):
     assert service.tasks().insert().execute.call_count == 1
 
 
-@patch("lidl_recipe.tasks.get_tasks_service")
+@patch("promki.tasks.get_tasks_service")
 def test_create_shopping_list_includes_date_in_title(mock_get_service):
     service = MagicMock()
     mock_get_service.return_value = service
@@ -80,7 +80,7 @@ def test_create_shopping_list_includes_date_in_title(mock_get_service):
     assert body["notes"] == "2.99 zł"
 
 
-@patch("lidl_recipe.tasks.get_tasks_service")
+@patch("promki.tasks.get_tasks_service")
 def test_create_shopping_list_no_date_when_missing(mock_get_service):
     service = MagicMock()
     mock_get_service.return_value = service

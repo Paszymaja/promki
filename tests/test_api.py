@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from lidl_recipe.api import LidlApi
+from promki.api import LidlApi
 
 
 def test_headers():
@@ -14,7 +14,7 @@ def test_headers():
     assert headers["Accept"] == "application/json"
 
 
-@patch("lidl_recipe.api.requests.get")
+@patch("promki.api.requests.get")
 def test_coupons_success(mock_get):
     mock_resp = MagicMock()
     mock_resp.ok = True
@@ -31,7 +31,7 @@ def test_coupons_success(mock_get):
     assert kwargs["headers"]["Authorization"] == "Bearer token"
 
 
-@patch("lidl_recipe.api.requests.get")
+@patch("promki.api.requests.get")
 def test_coupons_error_raises(mock_get):
     mock_resp = MagicMock()
     mock_resp.ok = False
@@ -48,7 +48,7 @@ def test_coupons_error_raises(mock_get):
         pass
 
 
-@patch("lidl_recipe.api.requests.post")
+@patch("promki.api.requests.post")
 def test_activate_coupon_success(mock_post):
     mock_resp = MagicMock()
     mock_resp.ok = True
@@ -62,7 +62,7 @@ def test_activate_coupon_success(mock_post):
     assert "activation" in args[0]
 
 
-@patch("lidl_recipe.api.requests.post")
+@patch("promki.api.requests.post")
 def test_activate_coupon_error_raises(mock_post):
     mock_resp = MagicMock()
     mock_resp.ok = False

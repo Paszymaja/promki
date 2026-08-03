@@ -2,11 +2,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from lidl_recipe.ollama import MODEL, suggest_recipes
-from lidl_recipe.recipes import RecipeError
+from promki.ollama import MODEL, suggest_recipes
+from promki.recipes import RecipeError
 
 
-@patch("lidl_recipe.ollama.requests.post")
+@patch("promki.ollama.requests.post")
 def test_suggest_recipes_builds_prompt(mock_post):
     mock_resp = MagicMock()
     mock_resp.ok = True
@@ -30,7 +30,7 @@ def test_suggest_recipes_builds_prompt(mock_post):
     assert "Polish" in prompt or "polsku" in prompt.lower()
 
 
-@patch("lidl_recipe.ollama.requests.post")
+@patch("promki.ollama.requests.post")
 def test_suggest_recipes_strips_trailing_slash_in_url(mock_post):
     mock_resp = MagicMock()
     mock_resp.ok = True
@@ -42,7 +42,7 @@ def test_suggest_recipes_strips_trailing_slash_in_url(mock_post):
     assert mock_post.call_args.args[0] == "http://localhost:11434/api/generate"
 
 
-@patch("lidl_recipe.ollama.requests.post")
+@patch("promki.ollama.requests.post")
 def test_suggest_recipes_api_error_exits(mock_post):
     mock_resp = MagicMock()
     mock_resp.ok = False
@@ -54,7 +54,7 @@ def test_suggest_recipes_api_error_exits(mock_post):
         suggest_recipes([{"title": "Ser", "description": ""}], "http://localhost:11434")
 
 
-@patch("lidl_recipe.ollama.requests.post")
+@patch("promki.ollama.requests.post")
 def test_suggest_recipes_unexpected_response_exits(mock_post):
     mock_resp = MagicMock()
     mock_resp.ok = True

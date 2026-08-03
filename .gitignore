@@ -5,4 +5,5 @@ __pycache__/
 credentials.json
 tasks_token.json
 lidl_session.json
+kaufland_session.json
 coupons.db

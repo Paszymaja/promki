@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from lidl_recipe.cli import _refresh_token, main
-from lidl_recipe.config import Config
+from promki.cli import _refresh_token, main
+from promki.config import Config
 
 
 def _make_coupons():
@@ -27,13 +27,25 @@ def _make_coupons():
     ]
 
 
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
-def test_main_displays_items_with_dates(mock_from_env, mock_api_cls, mock_fetch, mock_save, capsys, monkeypatch):
-    mock_from_env.return_value = Config(access_token="fake-token")
-    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+def _make_kaufland_coupons():
+    return [
+        {
+            "id": "k1",
+            "title": "Kaufland Ser",
+            "isActivated": True,
+            "discount": {"title": "3.99 zł", "description": ""},
+            "validity": {"end": "2026-03-17T23:59:59+01:00"},
+        },
+    ]
+
+
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
+def test_main_displays_items_with_dates(mock_from_env, mock_api_cls, mock_fetch, mock_save, capsys, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
+    monkeypatch.setattr("sys.argv", ["promki"])
     mock_fetch.return_value = _make_coupons()
 
     main()
@@ -47,27 +59,30 @@ def test_main_displays_items_with_dates(mock_from_env, mock_api_cls, mock_fetch,
     assert "(do" not in mleko_line
 
 
-@patch("lidl_recipe.cli._refresh_token")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
-def test_main_no_token_exits(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, monkeypatch):
-    mock_from_env.return_value = Config(access_token="")
+@patch("promki.cli._refresh_kaufland_session")
+@patch("promki.cli._refresh_token")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
+def test_main_no_token_exits(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, mock_kaufland_refresh, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(access_token="", project_root=tmp_path)
     mock_refresh.return_value = False
-    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+    mock_kaufland_refresh.return_value = False
+    monkeypatch.setattr("sys.argv", ["promki"])
 
-    with pytest.raises(SystemExit) as exc_info:
-        main()
-    assert exc_info.value.code == 1
+    main()
+
+    mock_refresh.assert_called_once()
+    assert mock_refresh.call_args.kwargs["allow_interactive"] is False
     mock_fetch.assert_not_called()
 
 
-@patch("lidl_recipe.cli.normalize_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
-def test_main_debug_mode(mock_from_env, mock_api_cls, mock_normalize, capsys, monkeypatch):
-    mock_from_env.return_value = Config(access_token="fake-token")
-    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--debug"])
+@patch("promki.cli.normalize_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
+def test_main_debug_mode(mock_from_env, mock_api_cls, mock_normalize, capsys, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
+    monkeypatch.setattr("sys.argv", ["promki", "--debug"])
     mock_api_cls.return_value.coupons.return_value = [{"id": "1", "title": "Test"}]
     mock_normalize.return_value = [{"id": "1", "title": "Test"}]
 
@@ -77,7 +92,7 @@ def test_main_debug_mode(mock_from_env, mock_api_cls, mock_normalize, capsys, mo
     assert '"title": "Test"' in output
 
 
-@patch("lidl_recipe.login.capture_token")
+@patch("promki.login.capture_token")
 def test_refresh_token_silent_success(mock_capture):
     mock_capture.return_value = "new-token"
     config = MagicMock(spec=Config)
@@ -90,7 +105,7 @@ def test_refresh_token_silent_success(mock_capture):
     config.reload.assert_called_once()
 
 
-@patch("lidl_recipe.login.capture_token")
+@patch("promki.login.capture_token")
 def test_refresh_token_silent_fails_no_interactive(mock_capture):
     mock_capture.return_value = None
     config = MagicMock(spec=Config)
@@ -101,7 +116,7 @@ def test_refresh_token_silent_fails_no_interactive(mock_capture):
     config.save_token.assert_not_called()
 
 
-@patch("lidl_recipe.login.capture_token")
+@patch("promki.login.capture_token")
 def test_refresh_token_falls_back_to_interactive(mock_capture):
     mock_capture.side_effect = [None, "interactive-token"]
     config = MagicMock(spec=Config)
@@ -114,15 +129,15 @@ def test_refresh_token_falls_back_to_interactive(mock_capture):
     config.save_token.assert_called_once_with("interactive-token")
 
 
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli._refresh_token")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
-def test_main_retries_on_401(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, mock_save, monkeypatch):
-    config = Config(access_token="stale-token")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli._refresh_token")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
+def test_main_retries_on_401(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, mock_save, monkeypatch, tmp_path):
+    config = Config(access_token="stale-token", project_root=tmp_path)
     mock_from_env.return_value = config
-    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+    monkeypatch.setattr("sys.argv", ["promki"])
 
     response = requests.Response()
     response.status_code = 401
@@ -143,13 +158,13 @@ def test_main_retries_on_401(mock_from_env, mock_api_cls, mock_fetch, mock_refre
     assert mock_api_cls.call_args_list[-1].args[0] == "refreshed-token"
 
 
-@patch("lidl_recipe.cli._refresh_token")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
-def test_main_401_refresh_failure_exits(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, monkeypatch):
-    mock_from_env.return_value = Config(access_token="stale-token")
-    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+@patch("promki.cli._refresh_token")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
+def test_main_401_refresh_failure_exits(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(access_token="stale-token", project_root=tmp_path)
+    monkeypatch.setattr("sys.argv", ["promki"])
 
     response = requests.Response()
     response.status_code = 401
@@ -162,13 +177,13 @@ def test_main_401_refresh_failure_exits(mock_from_env, mock_api_cls, mock_fetch,
     assert "--login" in str(exc_info.value)
 
 
-@patch("lidl_recipe.cli._refresh_token")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
-def test_main_non_401_error_propagates(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, monkeypatch):
-    mock_from_env.return_value = Config(access_token="ok-token")
-    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+@patch("promki.cli._refresh_token")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
+def test_main_non_401_error_propagates(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, monkeypatch, tmp_path):
+    mock_from_env.return_value = Config(access_token="ok-token", project_root=tmp_path)
+    monkeypatch.setattr("sys.argv", ["promki"])
 
     response = requests.Response()
     response.status_code = 500
@@ -180,32 +195,33 @@ def test_main_non_401_error_propagates(mock_from_env, mock_api_cls, mock_fetch, 
     mock_refresh.assert_not_called()
 
 
-@patch("lidl_recipe.cli._refresh_token")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
-def test_main_no_token_attempts_silent_refresh_first(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, monkeypatch):
-    config = Config(access_token="")
+@patch("promki.cli._refresh_kaufland_session")
+@patch("promki.cli._refresh_token")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
+def test_main_no_token_attempts_silent_refresh_first(mock_from_env, mock_api_cls, mock_fetch, mock_refresh, mock_kaufland_refresh, monkeypatch, tmp_path):
+    config = Config(access_token="", project_root=tmp_path)
     mock_from_env.return_value = config
-    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+    monkeypatch.setattr("sys.argv", ["promki"])
     mock_refresh.return_value = False
+    mock_kaufland_refresh.return_value = False
 
-    with pytest.raises(SystemExit):
-        main()
+    main()
 
     mock_refresh.assert_called_once()
     assert mock_refresh.call_args.kwargs["allow_interactive"] is False
     mock_fetch.assert_not_called()
 
 
-@patch("lidl_recipe.cli.diff_latest")
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
+@patch("promki.cli.diff_latest")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
 def test_main_diff_flag_invokes_diff(mock_from_env, mock_api_cls, mock_fetch, mock_save, mock_diff, capsys, monkeypatch, tmp_path):
     mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
-    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--diff"])
+    monkeypatch.setattr("sys.argv", ["promki", "--diff"])
     mock_fetch.return_value = _make_coupons()
     mock_diff.return_value = {
         "latest": "t2",
@@ -218,18 +234,20 @@ def test_main_diff_flag_invokes_diff(mock_from_env, mock_api_cls, mock_fetch, mo
     main()
 
     mock_save.assert_called_once()
-    mock_diff.assert_called_once()
+    assert mock_diff.call_count == 2  # called once per source
+    mock_diff.assert_any_call(tmp_path / "coupons.db", source="lidl")
+    mock_diff.assert_any_call(tmp_path / "coupons.db", source="kaufland")
     assert "Brand New Coupon" in capsys.readouterr().out
 
 
-@patch("lidl_recipe.cli.diff_latest")
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
+@patch("promki.cli.diff_latest")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
 def test_main_continues_when_save_snapshot_fails(mock_from_env, mock_api_cls, mock_fetch, mock_save, mock_diff, capsys, monkeypatch, tmp_path):
     mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
-    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+    monkeypatch.setattr("sys.argv", ["promki"])
     mock_fetch.return_value = _make_coupons()
     mock_save.side_effect = sqlite3.OperationalError("disk full")
 
@@ -241,14 +259,14 @@ def test_main_continues_when_save_snapshot_fails(mock_from_env, mock_api_cls, mo
     mock_diff.assert_not_called()
 
 
-@patch("lidl_recipe.cli.diff_latest")
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
+@patch("promki.cli.diff_latest")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
 def test_main_continues_when_diff_fails(mock_from_env, mock_api_cls, mock_fetch, mock_save, mock_diff, capsys, monkeypatch, tmp_path):
     mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
-    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--diff"])
+    monkeypatch.setattr("sys.argv", ["promki", "--diff"])
     mock_fetch.return_value = _make_coupons()
     mock_diff.side_effect = sqlite3.DatabaseError("corrupt")
 
@@ -258,16 +276,16 @@ def test_main_continues_when_diff_fails(mock_from_env, mock_api_cls, mock_fetch,
     assert "Warning" in output and "corrupt" in output
 
 
-@patch("lidl_recipe.cli.diff_latest")
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
+@patch("promki.cli.diff_latest")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
 def test_main_continues_when_save_raises_schema_version_error(mock_from_env, mock_api_cls, mock_fetch, mock_save, mock_diff, capsys, monkeypatch, tmp_path):
-    from lidl_recipe.db import SchemaVersionError
+    from promki.db import SchemaVersionError
 
     mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
-    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+    monkeypatch.setattr("sys.argv", ["promki"])
     mock_fetch.return_value = _make_coupons()
     mock_save.side_effect = SchemaVersionError("schema mismatch — delete coupons.db")
 
@@ -278,10 +296,10 @@ def test_main_continues_when_save_raises_schema_version_error(mock_from_env, moc
     assert "Ser Gouda" in output
 
 
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
 def test_recipes_dispatches_to_ollama(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
     mock_from_env.return_value = Config(
         access_token="fake-token",
@@ -289,10 +307,10 @@ def test_recipes_dispatches_to_ollama(mock_from_env, mock_api_cls, mock_fetch, m
         ollama_url="http://localhost:11434",
         project_root=tmp_path,
     )
-    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--recipes"])
+    monkeypatch.setattr("sys.argv", ["promki", "--recipes"])
     mock_fetch.return_value = _make_coupons()
 
-    with patch("lidl_recipe.ollama.suggest_recipes") as mock_ollama, patch("lidl_recipe.gemini.suggest_recipes") as mock_gemini:
+    with patch("promki.ollama.suggest_recipes") as mock_ollama, patch("promki.gemini.suggest_recipes") as mock_gemini:
         mock_ollama.return_value = "Polish recipe text"
         main()
 
@@ -301,10 +319,10 @@ def test_recipes_dispatches_to_ollama(mock_from_env, mock_api_cls, mock_fetch, m
     mock_gemini.assert_not_called()
 
 
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
 def test_recipes_dispatches_to_gemini_by_default(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
     mock_from_env.return_value = Config(
         access_token="fake-token",
@@ -312,10 +330,10 @@ def test_recipes_dispatches_to_gemini_by_default(mock_from_env, mock_api_cls, mo
         recipe_provider="gemini",
         project_root=tmp_path,
     )
-    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--recipes"])
+    monkeypatch.setattr("sys.argv", ["promki", "--recipes"])
     mock_fetch.return_value = _make_coupons()
 
-    with patch("lidl_recipe.gemini.suggest_recipes") as mock_gemini, patch("lidl_recipe.ollama.suggest_recipes") as mock_ollama:
+    with patch("promki.gemini.suggest_recipes") as mock_gemini, patch("promki.ollama.suggest_recipes") as mock_ollama:
         mock_gemini.return_value = "Recipe"
         main()
 
@@ -323,17 +341,17 @@ def test_recipes_dispatches_to_gemini_by_default(mock_from_env, mock_api_cls, mo
     mock_ollama.assert_not_called()
 
 
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
 def test_recipes_invalid_provider_exits(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
     mock_from_env.return_value = Config(
         access_token="fake-token",
         recipe_provider="bogus",
         project_root=tmp_path,
     )
-    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--recipes"])
+    monkeypatch.setattr("sys.argv", ["promki", "--recipes"])
     mock_fetch.return_value = _make_coupons()
 
     with pytest.raises(SystemExit) as exc_info:
@@ -341,10 +359,10 @@ def test_recipes_invalid_provider_exits(mock_from_env, mock_api_cls, mock_fetch,
     assert exc_info.value.code == 1
 
 
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
 def test_invalid_provider_does_not_exit_without_recipes_flag(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
     # Eager validation regression guard: --diff/--tasks/plain runs must not exit
     # just because RECIPE_PROVIDER happens to be invalid in the user's .env.
@@ -353,49 +371,54 @@ def test_invalid_provider_does_not_exit_without_recipes_flag(mock_from_env, mock
         recipe_provider="bogus",
         project_root=tmp_path,
     )
-    monkeypatch.setattr("sys.argv", ["lidl-recipe"])
+    monkeypatch.setattr("sys.argv", ["promki"])
     mock_fetch.return_value = _make_coupons()
 
     main()  # must not raise
 
 
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli.Config.from_env")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config.from_env")
 def test_recipes_recipe_error_exits_cleanly(mock_from_env, mock_api_cls, mock_fetch, mock_save, monkeypatch, tmp_path):
-    from lidl_recipe.recipes import RecipeError
+    from promki.recipes import RecipeError
 
     mock_from_env.return_value = Config(
         access_token="fake-token",
         recipe_provider="ollama",
         project_root=tmp_path,
     )
-    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--recipes"])
+    monkeypatch.setattr("sys.argv", ["promki", "--recipes"])
     mock_fetch.return_value = _make_coupons()
 
-    with patch("lidl_recipe.ollama.suggest_recipes") as mock_ollama:
+    with patch("promki.ollama.suggest_recipes") as mock_ollama:
         mock_ollama.side_effect = RecipeError("Ollama API failed (500): boom")
         with pytest.raises(SystemExit) as exc_info:
             main()
     assert "Ollama API failed" in str(exc_info.value)
 
 
-@patch("lidl_recipe.cli.diff_latest")
-@patch("lidl_recipe.cli.save_snapshot")
-@patch("lidl_recipe.cli.fetch_and_activate_coupons")
-@patch("lidl_recipe.cli.LidlApi")
-@patch("lidl_recipe.cli._refresh_token")
-@patch("lidl_recipe.cli.Config.from_env")
-def test_login_with_diff_falls_through_to_fetch(mock_from_env, mock_refresh, mock_api_cls, mock_fetch, mock_save, mock_diff, monkeypatch, tmp_path):
+@patch("promki.cli._refresh_kaufland_session")
+@patch("promki.cli.diff_latest")
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli._refresh_token")
+@patch("promki.cli.Config.from_env")
+def test_login_with_diff_falls_through_to_fetch(mock_from_env, mock_refresh, mock_api_cls, mock_fetch, mock_save, mock_diff, mock_kaufland_refresh, monkeypatch, tmp_path):
     mock_from_env.return_value = Config(access_token="fake-token", project_root=tmp_path)
     mock_refresh.return_value = True
-    monkeypatch.setattr("sys.argv", ["lidl-recipe", "--login", "--diff"])
+    mock_kaufland_refresh.return_value = True
+    monkeypatch.setattr("sys.argv", ["promki", "--login", "--diff"])
     mock_fetch.return_value = _make_coupons()
     mock_diff.return_value = None
 
-    main()
+    with patch("promki.kaufland.fetch_and_activate_kaufland_coupons") as mock_kfetch, \
+         patch("promki.kaufland.KauflandApi"):
+        mock_kfetch.return_value = _make_kaufland_coupons()
+        main()
 
     mock_fetch.assert_called_once()
-    mock_save.assert_called_once()
-    mock_diff.assert_called_once()
+    mock_save.assert_called()
+    assert mock_diff.call_count == 2  # called once per source

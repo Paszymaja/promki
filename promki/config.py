@@ -43,7 +43,7 @@ class Config:
     def require_access_token(self) -> str:
         if not self.access_token:
             print("No LIDL_ACCESS_TOKEN found in .env")
-            print("Run: uv run lidl-recipe --login")
+            print("Run: uv run promki --login")
             sys.exit(1)
         return self.access_token
 
@@ -76,6 +76,10 @@ class Config:
     @property
     def lidl_session_file(self) -> Path:
         return self.project_root / "lidl_session.json"
+
+    @property
+    def kaufland_session_file(self) -> Path:
+        return self.project_root / "kaufland_session.json"
 
     @property
     def db_file(self) -> Path:

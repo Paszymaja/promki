@@ -1,4 +1,4 @@
-# lidl-recipe
+# promki
 
 CLI tool that fetches your Lidl Plus coupons, auto-activates them, and optionally creates a Google Tasks shopping list or suggests recipes via Gemini.
 
@@ -28,7 +28,7 @@ The easiest way to get a token is the built-in browser login:
 ```bash
 uv sync --extra login          # install playwright
 playwright install chromium    # download browser (first time only)
-uv run lidl-recipe --login     # opens Chromium, log in manually, token saved to .env
+uv run promki --login     # opens Chromium, log in manually, token saved to .env
 ```
 
 The browser session is saved to `lidl_session.json` after the first login. On subsequent token refreshes the saved session is replayed silently in headless Chromium — no manual interaction needed. If the access token is rejected (HTTP 401), the CLI auto-refreshes it before retrying, so you typically only need `--login` once until the underlying session itself expires.
@@ -54,25 +54,25 @@ Alternatively, fill in `.env` manually:
 
 ```bash
 # Log in via browser (saves token to .env)
-uv run lidl-recipe --login
+uv run promki --login
 
 # Activate all coupons (default)
-uv run lidl-recipe
+uv run promki
 
 # Activate coupons + create shopping list in Google Tasks (consumables only)
-uv run lidl-recipe --tasks
+uv run promki --tasks
 
 # Activate coupons + get recipe suggestions via Gemini
-uv run lidl-recipe --recipes
+uv run promki --recipes
 
 # Show what changed since the previous run
-uv run lidl-recipe --diff
+uv run promki --diff
 
 # Both
-uv run lidl-recipe --tasks --recipes
+uv run promki --tasks --recipes
 
 # Debug: dump raw coupon JSON
-uv run lidl-recipe --debug
+uv run promki --debug
 ```
 
 ## Development

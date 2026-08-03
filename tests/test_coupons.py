@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from lidl_recipe.coupons import (
+from promki.coupons import (
     extract_discount_items,
     filter_consumables,
     normalize_coupons,

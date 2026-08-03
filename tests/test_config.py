@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from lidl_recipe.config import Config
+from promki.config import Config
 
 
 def test_require_access_token_exits_when_empty():
@@ -44,7 +44,7 @@ def test_require_recipe_provider_rejects_invalid():
 @pytest.fixture
 def isolated_env(monkeypatch):
     # Stop Config.from_env() from reading the real .env so env-var assertions are deterministic.
-    monkeypatch.setattr("lidl_recipe.config.load_dotenv", lambda *a, **kw: None)
+    monkeypatch.setattr("promki.config.load_dotenv", lambda *a, **kw: None)
 
 
 def test_from_env_does_not_validate_recipe_provider(monkeypatch, isolated_env):

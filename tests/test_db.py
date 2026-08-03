@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from lidl_recipe.db import (
+from promki.db import (
     SchemaVersionError,
     diff_latest,
     format_diff,
@@ -414,7 +414,7 @@ def test_user_version_set_after_initialization(tmp_path):
 
     with sqlite3.connect(db) as conn:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
-    assert version == 1
+    assert version == 2
 
 
 # --- error surfaces ---
