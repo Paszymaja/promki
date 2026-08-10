@@ -5,6 +5,29 @@ SILENT_TIMEOUT_MS = 20_000  # 20s for silent refresh via saved session
 
 KAUFLAND_COUPONS_URL = "https://sklep.kaufland.pl/oferta/strefa-korzysci-xtra.html"
 
+_GET_BEST_TOKEN_JS = """
+    () => {
+        let bestToken = null;
+        let bestExpiry = -1;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.includes('oidc.user')) {
+                try {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    const token = data.access_token;
+                    if (!token) continue;
+                    const expiresAt = data.expires_at || 0;
+                    if (expiresAt > bestExpiry) {
+                        bestExpiry = expiresAt;
+                        bestToken = token;
+                    }
+                } catch(e) {}
+            }
+        }
+        return bestToken;
+    }
+"""
+
 
 def capture_cookies(session_file: Path | None = None, silent: bool = False) -> dict | None:
     has_session = session_file is not None and session_file.exists()
@@ -42,31 +65,29 @@ def capture_cookies(session_file: Path | None = None, silent: bool = False) -> d
             if not silent:
                 print(f"Opening {KAUFLAND_COUPONS_URL} — please log in...")
 
-            # In silent mode, intercept API responses to detect
-            # that the page's JS successfully refreshed the token.
-            if silent:
-                def _on_response(response):
-                    nonlocal storage_state
-                    if storage_state is not None:
-                        return
-                    if response.ok and response.url.startswith(
-                        "https://sklep.kaufland.pl/.kl"
-                    ):
-                        storage_state = context.storage_state()
-                        if session_file is not None:
-                            try:
-                                context.storage_state(path=str(session_file))
-                            except PlaywrightError:
-                                pass
-
-                page.on("response", _on_response)
-
             page.goto(KAUFLAND_COUPONS_URL, wait_until="domcontentloaded")
 
             if silent:
+                old_token = None
+                try:
+                    old_token = page.evaluate(_GET_BEST_TOKEN_JS)
+                except PlaywrightError:
+                    pass
+
                 elapsed = 0
                 try:
-                    while not storage_state and elapsed < timeout_ms:
+                    while elapsed < timeout_ms:
+                        new_token = page.evaluate(_GET_BEST_TOKEN_JS)
+                        if new_token and new_token != old_token:
+                            page.wait_for_timeout(1000)
+                            storage_state = context.storage_state()
+                            if session_file is not None:
+                                try:
+                                    context.storage_state(path=str(session_file))
+                                except PlaywrightError:
+                                    pass
+                            break
+
                         page.wait_for_timeout(500)
                         elapsed += 500
                 except PlaywrightError:

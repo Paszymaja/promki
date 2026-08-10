@@ -16,15 +16,25 @@ def _load_access_token(session_file: Path) -> str | None:
     except (FileNotFoundError, json.JSONDecodeError):
         return None
 
+    best_token = None
+    best_expiry = -1
+
     for origin in state.get("origins", []):
         for item in origin.get("localStorage", []):
             if "oidc.user" in item.get("name", ""):
                 try:
                     user_data = json.loads(item["value"])
-                    return user_data.get("access_token")
+                    token = user_data.get("access_token")
+                    if not token:
+                        continue
+                    expires_at = user_data.get("expires_at", 0)
+                    if isinstance(expires_at, (int, float)) and expires_at > best_expiry:
+                        best_expiry = expires_at
+                        best_token = token
                 except (json.JSONDecodeError, KeyError):
                     pass
-    return None
+
+    return best_token
 
 
 class KauflandApi:
