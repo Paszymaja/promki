@@ -1,9 +1,6 @@
-.env
 __pycache__/
 *.pyc
 .venv/
-credentials.json
-tasks_token.json
 lidl_session.json
 kaufland_session.json
 coupons.db

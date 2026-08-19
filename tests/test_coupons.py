@@ -1,10 +1,7 @@
 from datetime import date
 
-import pytest
-
 from promki.coupons import (
     extract_discount_items,
-    filter_consumables,
     normalize_coupons,
 )
 
@@ -190,88 +187,3 @@ def test_extract_discount_items_discount_same_as_title_excluded():
     ]
     items = extract_discount_items(coupons)
     assert items[0]["description"] == ""
-
-
-# --- filter_consumables ---
-
-
-def test_filter_consumables_keeps_food():
-    items = [
-        {"title": "Ser Gouda"},
-        {"title": "Mleko UHT"},
-        {"title": "Masło Extra"},
-    ]
-    assert filter_consumables(items) == items
-
-
-def test_filter_consumables_removes_non_consumables():
-    items = [
-        {"title": "Robot kuchenny"},
-        {"title": "Spodnie męskie"},
-        {"title": "Telewizor 55 cali"},
-        {"title": "Laptop Lenovo"},
-        {"title": "Kettlebell 12kg"},
-    ]
-    assert filter_consumables(items) == []
-
-
-def test_filter_consumables_mixed():
-    items = [
-        {"title": "Ser Gouda"},
-        {"title": "Robot kuchenny"},
-        {"title": "Mleko UHT"},
-    ]
-    result = filter_consumables(items)
-    assert len(result) == 2
-    assert result[0]["title"] == "Ser Gouda"
-    assert result[1]["title"] == "Mleko UHT"
-
-
-def test_filter_consumables_case_insensitive():
-    items = [{"title": "ROBOT KUCHENNY"}]
-    assert filter_consumables(items) == []
-
-
-@pytest.mark.parametrize("title", [
-    "Robot kuchenny",                                # electronics
-    "Spodnie męskie",                                # clothing
-    "Kettlebell 12kg",                               # fitness
-    "Plecak turystyczny",                            # bags
-    "Szklanki komplet",                              # kitchenware
-    "Zabawki dla dzieci",                            # toys
-    "Telewizor 55 cali",                             # electronics
-    "Meble ogrodowe",                                # furniture
-    "Narzędzia warsztatowe",                         # tools
-    "Akcesoria łazienkowe",                          # accessories
-    "Saturator Sodastream Gaia",                     # appliance
-    "Saturator do wody gazowanej Gaia",              # appliance
-    "Gąbki Scrub Daddy lub Mommy",                   # cleaning
-    "Regał łazienkowy z bambusa",                    # furniture
-    "Frytkownica beztłuszczowa Air Fryer 3,6 L",     # appliance
-    "Kuchnia drewniana dla dzieci",                  # toy
-    "Dmuchany zamek z koszem do koszykówki",         # toy
-    "Huśtawka prostokątna XL",                       # toy
-    "Legowisko dla psa, grzejące i chłodzące",       # pet
-    "Wyrzutnia piłek tenisowych lub piłki tenisowe", # sports
-    "Basen dla psa",                                 # pet
-    "Legowisko lub składany leżak dla psa",          # pet
-    "Ekspres kolbowy, 1100 W",                       # appliance
-    "Blender ręczny",                                # appliance
-    "Krajalnica elektryczna",                        # appliance
-    "Deska SUP jednokomorowa Aquaview",              # sports
-    "Deska SUP dwukomorowa",                         # sports
-    "Wybrana pościel muślinowa",                     # bedding
-])
-def test_filter_consumables_keyword_categories(title):
-    assert filter_consumables([{"title": title}]) == []
-
-
-@pytest.mark.parametrize("title", [
-    "Frytki belgijskie",      # frytka != frytkownica
-    "Kawa ekspresowa Jacobs", # ekspresowa != ekspres kolb
-    "Deska serów francuskich",# deska != deska sup
-    "Wino leżakowane",        # leżakowane != leżak (substring guard)
-])
-def test_filter_consumables_does_not_overmatch_food(title):
-    """Sanity check: substrings of food words must not trigger non-consumable filter."""
-    assert filter_consumables([{"title": title}]) == [{"title": title}]

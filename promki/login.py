@@ -1,7 +1,26 @@
+import json
 from pathlib import Path
 
 LOGIN_TIMEOUT_MS = 300_000  # 5 minutes for interactive login
 SILENT_TIMEOUT_MS = 20_000  # 20s for silent refresh via saved session
+
+
+def load_access_token(session_file: Path | None = None) -> str | None:
+    if session_file is None or not session_file.exists():
+        return None
+    try:
+        with open(session_file) as f:
+            state = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    if not isinstance(state, dict):
+        return None
+    for cookie in state.get("cookies", []):
+        if isinstance(cookie, dict) and cookie.get("name") == "authToken":
+            token = cookie.get("value")
+            if token:
+                return token
+    return None
 
 
 def capture_token(session_file: Path | None = None, silent: bool = False) -> str | None:

@@ -7,28 +7,6 @@ import requests
 from .api import LidlApi
 
 
-_NON_CONSUMABLE_KEYWORDS = [
-    "robot", "termorobot", "laser", "akumulat",
-    "spodnie", "bluza", "kurtka", "buty", "skarpet", "odzie",
-    "kettlebell", "hantle", "hantel", "stojak", "ćwicze",
-    "plecak", "torba", "walizk",
-    "szklan", "garnek", "patelni", "nóż", "noże",
-    "zabawk", "klock", "kuchnia drewn", "dmuchan", "huśtawk",
-    "telewiz", "laptop", "tablet", "słuchaw", "głośnik",
-    "mebl", "fotel", "krzesł", "stół", "biurk", "szafk",
-    "narzędzi", "wiertark", "wkrętak", "klucz",
-    "akcesori", "zestaw", "koszula",
-    # Kitchen / household appliances
-    "ekspres kolb", "blender", "krajalnic", "frytkow", "saturator", "gąbk", "regał",
-    # Sports & outdoor
-    "deska sup", "tenis", "basen",
-    # Pet supplies (legowisk + dla psa/kota; "leżak" alone would match "leżakowane" wine)
-    "legowisk", "dla psa", "dla kota",
-    # Bedding
-    "pościel",
-]
-
-
 def normalize_coupons(raw) -> list[dict]:
     if isinstance(raw, list):
         return raw
@@ -109,13 +87,3 @@ def extract_discount_items(coupons: list[dict]) -> list[dict]:
 
         items.append({"title": title, "description": "\n".join(details), "valid_until": valid_until})
     return items
-
-
-def filter_consumables(items: list[dict]) -> list[dict]:
-    result = []
-    for item in items:
-        title_lower = item["title"].lower()
-        if any(kw in title_lower for kw in _NON_CONSUMABLE_KEYWORDS):
-            continue
-        result.append(item)
-    return result
