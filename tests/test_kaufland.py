@@ -10,6 +10,7 @@ from promki.kaufland.coupons import (
     _get_coupon_title,
     _is_expired,
     _is_free_coupon,
+    normalize_kaufland_coupon,
     normalize_kaufland_coupons,
 )
 
@@ -108,6 +109,50 @@ def test_get_coupon_id():
     assert _get_coupon_id(_make_coupon()) == "000001234"
     assert _get_coupon_id({"id": "fallback"}) == "fallback"
     assert _get_coupon_id({}) == ""
+
+
+# --- normalize_kaufland_coupon ---
+
+
+def test_normalize_kaufland_coupon_maps_common_shape():
+    result = normalize_kaufland_coupon(_make_coupon())
+    assert result["id"] == "000001234"
+    assert result["title"] == "Maslo Polskie ekstra"
+    assert result["discount"] == {}
+    assert result["validity"] == {
+        "start": "2026-07-23T00:00:00+02:00",
+        "end": "2099-12-31T23:59:59+01:00",
+    }
+    assert result["isActivated"] is False
+
+
+def test_normalize_kaufland_coupon_activated_status():
+    result = normalize_kaufland_coupon(_make_coupon(status="ACTIVATED"))
+    assert result["isActivated"] is True
+
+
+def test_normalize_kaufland_coupon_preserves_raw_fields():
+    coupon = _make_coupon(brand="Mlekovita")
+    result = normalize_kaufland_coupon(coupon)
+    assert result["gcn"] == "000001234"
+    assert result["name"] == "Maslo Polskie ekstra"
+    assert result["brand"] == "Mlekovita"
+    assert result["status"] == 0
+    assert result["loyaltyPoints"] is None
+
+
+def test_normalize_kaufland_coupon_fallback_id_title():
+    result = normalize_kaufland_coupon({"id": "x", "title": "T", "status": "ACTIVATED"})
+    assert result["id"] == "x"
+    assert result["title"] == "T"
+    assert result["validity"] == {"start": "", "end": ""}
+
+
+def test_normalize_kaufland_coupon_empty():
+    result = normalize_kaufland_coupon({})
+    assert result["id"] == ""
+    assert result["title"] == "Unknown"
+    assert result["isActivated"] is False
 
 
 # --- _load_access_token ---

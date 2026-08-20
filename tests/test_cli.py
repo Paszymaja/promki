@@ -332,3 +332,25 @@ def test_login_with_diff_falls_through_to_fetch(mock_config, mock_load, mock_ref
     mock_fetch.assert_called_once()
     mock_save.assert_called()
     assert mock_diff.call_count == 2  # called once per source
+
+
+@patch("promki.cli.save_snapshot")
+@patch("promki.cli._refresh_token")
+@patch("promki.cli.load_access_token")
+@patch("promki.cli.fetch_and_activate_coupons")
+@patch("promki.cli.LidlApi")
+@patch("promki.cli.Config")
+def test_main_saves_kaufland_snapshot_with_source(mock_config, mock_api_cls, mock_fetch, mock_load, mock_refresh, mock_save, capsys, monkeypatch, tmp_path):
+    mock_config.return_value = Config(project_root=tmp_path)
+    mock_load.return_value = "fake-token"
+    mock_fetch.return_value = _make_coupons()
+    monkeypatch.setattr("sys.argv", ["promki"])
+    (tmp_path / "kaufland_session.json").write_text("{}")
+
+    with patch("promki.kaufland.fetch_and_activate_kaufland_coupons") as mock_kfetch, \
+         patch("promki.kaufland.KauflandApi"):
+        mock_kfetch.return_value = _make_kaufland_coupons()
+        main()
+
+    mock_save.assert_any_call(tmp_path / "coupons.db", mock_kfetch.return_value, source="kaufland")
+    assert "Kaufland Ser" in capsys.readouterr().out  # normalized title in display

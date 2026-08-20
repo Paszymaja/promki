@@ -165,6 +165,30 @@ def test_save_snapshot_persists_full_raw_json(tmp_path):
     assert parsed["nested"] == {"x": [1, 2]}
 
 
+def test_save_snapshot_kaufland_source(tmp_path):
+    db = tmp_path / "coupons.db"
+    coupon = {
+        "gcn": "000001234",
+        "name": "Maslo Polskie ekstra",
+        "startDate": "2026-07-23T00:00:00+02:00",
+        "endDate": "2099-12-31T23:59:59+01:00",
+        "status": "ACTIVATED",
+        "id": "000001234",
+        "title": "Maslo Polskie ekstra",
+        "discount": {},
+        "validity": {"start": "2026-07-23T00:00:00+02:00", "end": "2099-12-31T23:59:59+01:00"},
+        "isActivated": True,
+    }
+
+    save_snapshot(db, [coupon], fetched_at=T1, source="kaufland")
+
+    with sqlite3.connect(db) as conn:
+        row = conn.execute(
+            "SELECT coupon_id, title, source, is_activated, valid_end FROM coupon_observations"
+        ).fetchone()
+    assert row == ("000001234", "Maslo Polskie ekstra", "kaufland", 1, "2099-12-31T23:59:59+01:00")
+
+
 # --- save_snapshot: schema constraint enforcement ---
 
 

@@ -53,6 +53,27 @@ def _get_coupon_id(coupon: dict) -> str:
     return coupon.get("gcn", coupon.get("id", ""))
 
 
+def normalize_kaufland_coupon(coupon: dict) -> dict:
+    """Overlay the Lidl-compatible observation shape onto a raw Kaufland coupon.
+
+    The DB layer (`db._to_row`) and `extract_discount_items` read the Lidl
+    field names (`id`, `title`, `discount`, `validity`, `isActivated`), so
+    Kaufland coupons are normalized here to match. The original fields are
+    retained so `raw_json` keeps full fidelity.
+    """
+    return {
+        **coupon,
+        "id": _get_coupon_id(coupon),
+        "title": _get_coupon_title(coupon),
+        "discount": {},
+        "validity": {
+            "start": coupon.get("startDate", ""),
+            "end": coupon.get("endDate", ""),
+        },
+        "isActivated": coupon.get("status") == "ACTIVATED",
+    }
+
+
 def fetch_and_activate_kaufland_coupons(api: KauflandApi) -> list[dict]:
     import time as _time
 
@@ -94,4 +115,4 @@ def fetch_and_activate_kaufland_coupons(api: KauflandApi) -> list[dict]:
         else:
             print(f"  Skipped (no id): {title}")
 
-    return coupons
+    return [normalize_kaufland_coupon(c) for c in coupons]
