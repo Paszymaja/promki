@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+.vscode/
 lidl_session.json
 kaufland_session.json
 coupons.db
